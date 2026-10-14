@@ -1289,16 +1289,18 @@
     const WORLD_HEIGHT = LEVEL_ROWS * TILE_SIZE;
 
     const PHYSICS = {
-      GRAVITY: 980,
+      GRAVITY: 920,
       MAX_FALL_SPEED: 340,
-      MOVE_ACCEL: 1150,
-      MOVE_DECEL: 1350,
-      AIR_ACCEL: 780,
-      MAX_MOVE_SPEED: 132,
-      JUMP_VELOCITY: -285,
-      JUMP_CUT_MULTIPLIER: 0.48,
-      COYOTE_TIME_MS: 105,
-      JUMP_BUFFER_MS: 120,
+      MOVE_ACCEL: 1200,
+      MOVE_DECEL: 1400,
+      AIR_ACCEL: 920,
+      MAX_MOVE_SPEED: 138,
+      JUMP_VELOCITY: -330,
+      JUMP_CUT_MULTIPLIER: 0.58,
+      MIN_JUMP_HOLD_MS: 95,
+      COYOTE_TIME_MS: 115,
+      JUMP_BUFFER_MS: 135,
+      MAX_SUBSTEP_DT: 1 / 120,
     };
 
     // ============================================================================
@@ -1343,6 +1345,7 @@
       }
 
       buildLevel() {
+        // Continuous walkable ground at row 15..17 (cols 0..149 and cols 166..199)
         for (let c = 0; c < LEVEL_COLS; c++) {
           const isChasm = c >= 150 && c <= 165;
           if (!isChasm) {
@@ -1352,76 +1355,77 @@
           }
         }
 
+        // Left & right world boundary walls
         for (let r = 0; r < LEVEL_ROWS; r++) {
           this.grid[r][0] = 4;
           this.grid[r][LEVEL_COLS - 1] = 4;
         }
 
-        // Zone 1: Oakvale Village stepping monolith ledges
-        this.addPlatform(18, 12, 5, 5);
-        this.addPlatform(36, 11, 6, 5);
-        this.addPlatform(52, 12, 5, 5);
+        // Zone 1: Oakvale Village — generous overlapping 2-tile (32px) staircase monoliths (Max Jump = 59px)
+        this.addPlatform(17, 13, 7, 5); // Plat 1A: cols 17..23, row 13 (32px above ground) -> Crystal c1
+        this.addPlatform(27, 13, 9, 5); // Plat 1B: cols 27..35, row 13 stepping stone to Plat 1C
+        this.addPlatform(33, 11, 9, 5); // Plat 1C: cols 33..41, row 11 (32px above Plat 1B) -> Crystal c2
+        this.addPlatform(50, 13, 8, 5); // Plat 1D: cols 50..57, row 13 (32px above ground) -> Memory m1
 
-        // Zone 2: Whispering Forest verticality, mossy stone monoliths & canopy ledges
-        this.addSolidBlock(76, 13, 4, 2, 4);
-        this.addPlatform(83, 11, 6, 5);
-        this.addPlatform(92, 9, 6, 5);
-        this.addSolidBlock(102, 12, 5, 3, 1);
-        this.addPlatform(111, 10, 5, 5);
-        this.addPlatform(120, 8, 6, 5);
-        this.addSolidBlock(130, 13, 5, 2, 4);
+        // Zone 2: Whispering Forest — unobstructed ground path + two overlapping 2-tile staircase ascents
+        this.addPlatform(74, 13, 10, 5); // Plat 2A: cols 74..83, row 13 (32px above ground) -> Crystal c3
+        this.addPlatform(81, 11, 11, 5); // Plat 2B: cols 81..91, row 11 (32px above Plat 2A) -> Crystal c4
+        this.addPlatform(88, 9, 10, 5);  // Plat 2C: cols 88..97, row 9  (32px above Plat 2B) -> Memory m2
 
-        // Zone 3: Broken Bridge Chasm (cols 150..165)
-        this.addSolidBlock(148, 14, 2, 1, 4);
-        this.addSolidBlock(166, 14, 2, 1, 4);
+        this.addPlatform(103, 13, 10, 5); // Plat 2D: cols 103..112, row 13 (32px above ground) -> stepping monolith
+        this.addPlatform(110, 11, 11, 5); // Plat 2E: cols 110..120, row 11 (32px above Plat 2D) -> Crystal c5
+        this.addPlatform(117, 9, 10, 5);  // Plat 2F: cols 117..126, row 9  (32px above Plat 2E) -> Crystal c6
+        this.addPlatform(131, 13, 7, 5);  // Plat 2G: cols 131..137, row 13 overlook before West Bank
+
+        // Zone 3: Broken Bridge Chasm (cols 150..165) at row 15 — flush with West & East Banks!
         for (let c = 150; c <= 165; c++) {
-          this.grid[14][c] = 6;
+          this.grid[15][c] = 6; // Type 6 = active when platePressed or bridgeUnlockedPermanently
         }
 
-        // High sanctuary ledges near Starlight Shrine (cols 172..195)
-        this.addPlatform(173, 12, 5, 5);
-        this.addPlatform(182, 10, 7, 5);
+        // High sanctuary staircase ledges near Starlight Shrine (cols 172..188)
+        this.addPlatform(172, 13, 9, 5); // Plat 3A: cols 172..180, row 13 (32px above ground) -> Crystal c8
+        this.addPlatform(178, 11, 10, 5); // Plat 3B: cols 178..187, row 11 (32px above Plat 3A) -> Memory m3
 
-        // Collectible Heart Crystals (8) & Memory Shards (3)
+        // Collectible Heart Crystals (8) & Memory Shards (3) aligned with reachable platforms
         this.collectibles = [
-          { id: "c1", type: "crystal", x: 20 * 16, y: 10.5 * 16, collected: false },
-          { id: "c2", type: "crystal", x: 39 * 16, y: 9.5 * 16, collected: false },
+          { id: "c1", type: "crystal", x: 19.5 * 16, y: 11.6 * 16, collected: false },
+          { id: "c2", type: "crystal", x: 38 * 16, y: 9.6 * 16, collected: false },
           {
             id: "m1",
             type: "memory",
             memoryId: "mem_1",
             x: 54 * 16,
-            y: 10.5 * 16,
+            y: 11.6 * 16,
             collected: false,
             title: "Memory #1: First Coffee in Oakvale",
             text: "Ayush still remembers how nervous he was waiting by the village lantern post—until she smiled and made the whole evening glow."
           },
-          { id: "c3", type: "crystal", x: 78 * 16, y: 11.5 * 16, collected: false },
-          { id: "c4", type: "crystal", x: 86 * 16, y: 9.5 * 16, collected: false },
+          { id: "c3", type: "crystal", x: 76.5 * 16, y: 11.6 * 16, collected: false },
+          { id: "c4", type: "crystal", x: 86 * 16, y: 9.6 * 16, collected: false },
           {
             id: "m2",
             type: "memory",
             memoryId: "mem_2",
             x: 95 * 16,
-            y: 7.5 * 16,
+            y: 7.6 * 16,
             collected: false,
             title: "Memory #2: Secret Under the Canopy",
             text: "Even when the forest trails grew steep, we never rushed ahead alone. Every climb feels lighter side by side."
           },
-          { id: "c5", type: "crystal", x: 113 * 16, y: 8.5 * 16, collected: false },
-          { id: "c6", type: "crystal", x: 123 * 16, y: 6.5 * 16, collected: false },
-          { id: "c7", type: "crystal", x: 157 * 16, y: 12.2 * 16, collected: false },
+          { id: "c5", type: "crystal", x: 114 * 16, y: 9.6 * 16, collected: false },
+          { id: "c6", type: "crystal", x: 123 * 16, y: 7.6 * 16, collected: false },
+          { id: "c7", type: "crystal", x: 157.5 * 16, y: 14.1 * 16, collected: false },
           {
             id: "m3",
             type: "memory",
             memoryId: "mem_3",
-            x: 185 * 16,
-            y: 8.5 * 16,
+            x: 184 * 16,
+            y: 9.6 * 16,
             collected: false,
             title: "Memory #3: Promise at the Bridge",
             text: "No distance or chasm keeps us apart for long—one holds the anchor while the other builds the way across."
           },
-          { id: "c8", type: "crystal", x: 175 * 16, y: 10.5 * 16, collected: false },
+          { id: "c8", type: "crystal", x: 175.5 * 16, y: 11.6 * 16, collected: false },
         ];
 
         // Interactive Objects (Signs, Lantern Keeper Mira, Pressure Plate, Bridge Winch, Starlight Shrine)
@@ -1982,30 +1986,37 @@
         }
         app.missionManager.syncCollectibleCounts(true);
 
-        if (
-          parsed.playerPos &&
-          typeof parsed.playerPos.x === "number" &&
-          typeof parsed.playerPos.y === "number" &&
-          parsed.playerPos.x >= 16 &&
-          parsed.playerPos.x <= WORLD_WIDTH - 32 &&
-          parsed.playerPos.y >= 0 &&
-          parsed.playerPos.y <= WORLD_HEIGHT
-        ) {
-          app.ayush.x = parsed.playerPos.x;
-          app.ayush.y = parsed.playerPos.y;
-        }
-        if (
-          parsed.partnerPos &&
-          typeof parsed.partnerPos.x === "number" &&
-          typeof parsed.partnerPos.y === "number" &&
-          parsed.partnerPos.x >= 16 &&
-          parsed.partnerPos.x <= WORLD_WIDTH - 32 &&
-          parsed.partnerPos.y >= 0 &&
-          parsed.partnerPos.y <= WORLD_HEIGHT
-        ) {
-          app.partner.x = parsed.partnerPos.x;
-          app.partner.y = parsed.partnerPos.y;
-        }
+        const sanitizePos = (pos, fallbackX) => {
+          if (
+            !pos ||
+            typeof pos.x !== "number" ||
+            typeof pos.y !== "number" ||
+            pos.x < 16 ||
+            pos.x > WORLD_WIDTH - 32 ||
+            pos.y < 0 ||
+            pos.y > WORLD_HEIGHT
+          ) {
+            return { x: fallbackX, y: 15 * TILE_SIZE - 17 };
+          }
+          const col = Math.floor((pos.x + 6) / TILE_SIZE);
+          const inChasm = col >= 150 && col <= 165 && !app.world.bridgeUnlockedPermanently;
+          if (inChasm) {
+            return { x: 142 * TILE_SIZE, y: 15 * TILE_SIZE - 17 };
+          }
+          const row = Math.floor((pos.y + 8) / TILE_SIZE);
+          if (app.world.isSolidAt(col, row) || pos.y + 17 > 15 * TILE_SIZE) {
+            return { x: pos.x, y: 15 * TILE_SIZE - 17 };
+          }
+          return { x: pos.x, y: pos.y };
+        };
+
+        const safeP1 = sanitizePos(parsed.playerPos, 8 * TILE_SIZE);
+        app.ayush.x = safeP1.x;
+        app.ayush.y = safeP1.y;
+
+        const safeP2 = sanitizePos(parsed.partnerPos, 6 * TILE_SIZE);
+        app.partner.x = safeP2.x;
+        app.partner.y = safeP2.y;
         app.companionHoldMode = Boolean(parsed.companionHoldMode);
 
         return { loaded: true, reason: "ok" };
@@ -2193,6 +2204,8 @@
         this.justLanded = false;
         this.coyoteTimer = 0;
         this.jumpBufferTimer = 0;
+        this.jumpElapsedMs = 0;
+        this.jumpCutApplied = false;
         this.frames = frames;
         this.animTimer = 0;
         this.currentFrame = 0;
@@ -2206,8 +2219,11 @@
         const dtMs = dt * 1000;
         if (this.onGround) {
           this.coyoteTimer = PHYSICS.COYOTE_TIME_MS;
+          this.jumpElapsedMs = 0;
+          this.jumpCutApplied = false;
         } else {
           this.coyoteTimer = Math.max(0, this.coyoteTimer - dtMs);
+          this.jumpElapsedMs += dtMs;
         }
 
         if (jumpPressed) {
@@ -2216,49 +2232,70 @@
           this.jumpBufferTimer = Math.max(0, this.jumpBufferTimer - dtMs);
         }
 
-        const accel = this.onGround ? PHYSICS.MOVE_ACCEL : PHYSICS.AIR_ACCEL;
-        if (moveDir !== 0) {
-          this.vx += moveDir * accel * dt;
-          this.vx = Math.max(-PHYSICS.MAX_MOVE_SPEED, Math.min(PHYSICS.MAX_MOVE_SPEED, this.vx));
-          this.facing = moveDir > 0 ? 1 : -1;
-        } else {
-          const decel = PHYSICS.MOVE_DECEL * dt;
-          if (Math.abs(this.vx) <= decel) {
-            this.vx = 0;
-          } else {
-            this.vx -= Math.sign(this.vx) * decel;
-          }
-        }
-
+        // Execute buffered or coyote jump before sub-stepping
         if (this.jumpBufferTimer > 0 && this.coyoteTimer > 0) {
           this.vy = PHYSICS.JUMP_VELOCITY;
           this.onGround = false;
           this.coyoteTimer = 0;
           this.jumpBufferTimer = 0;
+          this.jumpElapsedMs = 0;
+          this.jumpCutApplied = false;
         }
 
-        if (!jumpHeld && this.vy < -80) {
+        // Frame-rate-independent variable jump height cut (applied at most once after MIN_JUMP_HOLD_MS)
+        if (
+          !jumpHeld &&
+          !this.jumpCutApplied &&
+          this.jumpElapsedMs >= PHYSICS.MIN_JUMP_HOLD_MS &&
+          this.vy < -100
+        ) {
           this.vy *= PHYSICS.JUMP_CUT_MULTIPLIER;
+          this.jumpCutApplied = true;
         }
 
-        this.vy = Math.min(PHYSICS.MAX_FALL_SPEED, this.vy + PHYSICS.GRAVITY * dt);
+        // Sub-step integration (max 1/120s per step) so jump apex and platform landing are identical at 20–120 FPS
+        const steps = Math.max(1, Math.ceil(dt / PHYSICS.MAX_SUBSTEP_DT));
+        const subDt = dt / steps;
 
-        this.x += this.vx * dt;
-        this.resolveHorizontalCollisions(world);
+        for (let s = 0; s < steps; s++) {
+          const accel = this.onGround ? PHYSICS.MOVE_ACCEL : PHYSICS.AIR_ACCEL;
+          if (moveDir !== 0) {
+            this.vx += moveDir * accel * subDt;
+            this.vx = Math.max(-PHYSICS.MAX_MOVE_SPEED, Math.min(PHYSICS.MAX_MOVE_SPEED, this.vx));
+            this.facing = moveDir > 0 ? 1 : -1;
+          } else {
+            const decel = PHYSICS.MOVE_DECEL * subDt;
+            if (Math.abs(this.vx) <= decel) {
+              this.vx = 0;
+            } else {
+              this.vx -= Math.sign(this.vx) * decel;
+            }
+          }
 
-        const prevBottom = this.y + this.height;
-        this.y += this.vy * dt;
-        this.resolveVerticalCollisions(world, prevBottom);
+          // Midpoint / Verlet vertical integration for exact frame-rate-independent jump apex
+          const prevVy = this.vy;
+          this.vy = Math.min(PHYSICS.MAX_FALL_SPEED, this.vy + PHYSICS.GRAVITY * subDt);
+          const avgVy = 0.5 * (prevVy + this.vy);
+
+          this.x += this.vx * subDt;
+          this.resolveHorizontalCollisions(world);
+
+          const prevBottom = this.y + this.height;
+          this.y += avgVy * subDt;
+          this.resolveVerticalCollisions(world, prevBottom);
+        }
 
         if (!this.wasOnGround && this.onGround) {
           this.justLanded = true;
         }
 
-        if (this.y > WORLD_HEIGHT + 36) {
-          this.x = 142 * TILE_SIZE;
-          this.y = 11 * TILE_SIZE;
+        // Safe zone-aware chasm/pit recovery
+        if (this.y > WORLD_HEIGHT + 32) {
+          this.x = this.x >= 135 * TILE_SIZE ? 142 * TILE_SIZE : 8 * TILE_SIZE;
+          this.y = 15 * TILE_SIZE - this.height;
           this.vx = 0;
           this.vy = 0;
+          this.onGround = true;
         }
 
         this.animTimer += dt;
@@ -2302,21 +2339,24 @@
 
       resolveVerticalCollisions(world, prevBottom) {
         this.onGround = false;
-        const leftCol = Math.floor((this.x + 2) / TILE_SIZE);
-        const rightCol = Math.floor((this.x + this.width - 2) / TILE_SIZE);
+        const leftCol = Math.floor((this.x + 1.5) / TILE_SIZE);
+        const rightCol = Math.floor((this.x + this.width - 1.5) / TILE_SIZE);
 
         if (this.vy >= 0) {
-          const bottomRow = Math.floor((this.y + this.height) / TILE_SIZE);
-          for (let c = leftCol; c <= rightCol; c++) {
-            const tileTop = bottomRow * TILE_SIZE;
-            if (
-              world.isSolidAt(c, bottomRow) ||
-              (world.isOneWayAt(c, bottomRow) && prevBottom <= tileTop + 4)
-            ) {
-              this.y = tileTop - this.height;
-              this.vy = 0;
-              this.onGround = true;
-              break;
+          const startRow = Math.max(0, Math.floor((prevBottom - 1) / TILE_SIZE));
+          const endRow = Math.min(LEVEL_ROWS - 1, Math.floor((this.y + this.height) / TILE_SIZE));
+          for (let r = startRow; r <= endRow; r++) {
+            const tileTop = r * TILE_SIZE;
+            for (let c = leftCol; c <= rightCol; c++) {
+              if (
+                world.isSolidAt(c, r) ||
+                (world.isOneWayAt(c, r) && prevBottom <= tileTop + 5)
+              ) {
+                this.y = tileTop - this.height;
+                this.vy = 0;
+                this.onGround = true;
+                return;
+              }
             }
           }
         } else if (this.vy < 0) {
@@ -2325,7 +2365,7 @@
             if (world.isSolidAt(c, topRow)) {
               this.y = (topRow + 1) * TILE_SIZE;
               this.vy = 0;
-              break;
+              return;
             }
           }
         }
@@ -3113,11 +3153,18 @@
         this.partner.heartTimer = 1.1;
         this.ayush.heartTimer = 1.1;
         this.spawnHeartBurst(this.partner.x + 6, this.partner.y - 4);
-        this.updateCompanionUI();
 
         const plateX = 145 * TILE_SIZE;
-        if (this.companionHoldMode && Math.abs(this.partner.x - plateX) < 36) {
+        const nearWestPlate =
+          Math.abs(this.partner.x - plateX) < 84 || Math.abs(this.ayush.x - plateX) < 84;
+        if (this.companionHoldMode && nearWestPlate) {
           this.partner.x = plateX;
+          this.partner.y = 15 * TILE_SIZE - this.partner.height;
+          this.partner.vx = 0;
+          this.partner.vy = 0;
+          this.partner.onGround = true;
+          this.world.platePressed = true;
+          this.updateStatsUI();
           this.dialogue.open(
             `${this.partnerName.toUpperCase()} — HOLDING PLATE`,
             [
@@ -3125,6 +3172,7 @@
             ]
           );
         }
+        this.updateCompanionUI();
         SaveManager.saveGame(this);
       }
 
@@ -3221,11 +3269,32 @@
         }
 
         if (obj.id === "west_plate") {
+          const plateX = 145 * TILE_SIZE;
+          this.companionHoldMode = true;
+          this.partner.x = plateX;
+          this.partner.y = 15 * TILE_SIZE - this.partner.height;
+          this.partner.vx = 0;
+          this.partner.vy = 0;
+          this.partner.onGround = true;
+          this.world.platePressed = true;
+          this.updateCompanionUI();
+          this.updateStatsUI();
           this.dialogue.open(
-            "ANCIENT STONE PRESSURE PLATE",
+            "ANCIENT STONE PRESSURE PLATE — ACTIVATED",
             [
-              `This rune-carved plate powers the Starlight Bridge across the chasm. Position ${this.partnerName} on the plate and press [C] (or tap ♥ STAY/GO) so she holds it down while Ayush crosses!`
-            ]
+              `${this.partnerName} stepped onto the rune-carved West Stone Pressure Plate and is holding it down!`,
+              `The Astral Starlight Bridge has solidified across the chasm—run across to the East Bank Winch [col 168] and press [B / ACT] to lock it permanently!`
+            ],
+            () => {
+              if (!this.storyFlags.plateActivatedOnce) {
+                this.storyFlags.plateActivatedOnce = true;
+                if (this.missionManager.getMission("m5_repair_bridge").status === "locked") {
+                  this.missionManager.unlockMission("m5_repair_bridge", true);
+                }
+                this.missionManager.setObjectiveProgress("m5_repair_bridge", "hold_west_plate", 1);
+              }
+              SaveManager.saveGame(this);
+            }
           );
           return;
         }
@@ -3378,6 +3447,16 @@
           this.spawnDustMotes(this.ayush.x + 6, this.ayush.y + this.ayush.height, "#67e8f9", 6);
         }
 
+        if (this.input.consumeKey("Backquote") || this.input.consumeKey("F3") || this.input.consumeKey("KeyV")) {
+          this.debugMode = !this.debugMode;
+          this.showQuestToast(
+            this.debugMode ? "DEBUG OVERLAY ENABLED [~ / F3 / V]" : "DEBUG OVERLAY DISABLED",
+            this.debugMode
+              ? "Showing AABB hitboxes, collision tiles, velocities & interaction radii."
+              : "Returned to clean visual presentation."
+          );
+        }
+
         let partnerMove = 0;
         let partnerJump = false;
         if (!this.companionHoldMode) {
@@ -3389,22 +3468,57 @@
             this.partner.x < 150 * TILE_SIZE &&
             dx > 0;
 
-          if (!nearChasmEdge && Math.abs(dx) > 24) {
+          // Auto-anchor Partner on West Pressure Plate (col 145) if Ayush steps toward the chasm before bridge is locked
+          if (
+            !this.world.bridgeUnlockedPermanently &&
+            this.ayush.x >= 146 * TILE_SIZE &&
+            this.ayush.x <= 170 * TILE_SIZE &&
+            Math.abs(this.partner.x - 145 * TILE_SIZE) < 42
+          ) {
+            this.partner.x = 145 * TILE_SIZE;
+            this.partner.y = 15 * TILE_SIZE - this.partner.height;
+            this.partner.vx = 0;
+            this.partner.vy = 0;
+            this.partner.onGround = true;
+            partnerMove = 0;
+          } else if (!nearChasmEdge && Math.abs(dx) > 22) {
             partnerMove = dx > 0 ? 1 : -1;
             if (
               this.partner.onGround &&
-              (this.ayush.y < this.partner.y - 14 || Math.abs(this.partner.vx) < 5)
+              (this.ayush.y < this.partner.y - 12 || Math.abs(this.partner.vx) < 5)
             ) {
               partnerJump = true;
             }
           }
-          if (Math.abs(dx) > 340 && (this.world.bridgeUnlockedPermanently || this.ayush.x < 148 * TILE_SIZE)) {
-            this.partner.x = this.ayush.x - this.ayush.facing * 20;
+          // If Partner is stranded on a one-way platform above Ayush, drop down to Ayush level
+          const partnerBottomRow = Math.floor((this.partner.y + this.partner.height + 1) / TILE_SIZE);
+          const partnerCol = Math.floor((this.partner.x + 6) / TILE_SIZE);
+          if (
+            this.partner.onGround &&
+            this.ayush.y > this.partner.y + 16 &&
+            Math.abs(dx) < 64 &&
+            this.world.isOneWayAt(partnerCol, partnerBottomRow) &&
+            partnerBottomRow < 15
+          ) {
+            this.partner.y += 6;
+            this.partner.onGround = false;
+          }
+          // Safe catch-up if partner is far behind on the same bank or after bridge is active
+          const canCatchUp =
+            this.world.bridgeUnlockedPermanently ||
+            this.world.platePressed ||
+            this.ayush.x < 150 * TILE_SIZE;
+          if (Math.abs(dx) > 260 && canCatchUp) {
+            this.partner.x = Math.max(16, this.ayush.x - this.ayush.facing * 20);
             this.partner.y = this.ayush.y;
+            this.partner.vx = 0;
+            this.partner.vy = 0;
             this.spawnHeartBurst(this.partner.x, this.partner.y);
           }
         }
-        this.partner.updatePhysics(dt, this.world, partnerMove, partnerJump, partnerJump);
+        // Pass jumpHeld = true while partner is ascending (this.partner.vy < 0) so her jump is never prematurely cut!
+        const partnerJumpHeld = partnerJump || this.partner.vy < 0;
+        this.partner.updatePhysics(dt, this.world, partnerMove, partnerJump, partnerJumpHeld);
 
         const plateX = 145 * TILE_SIZE;
         const ayushOnPlate = Math.abs(this.ayush.x - plateX) < 18 && this.ayush.onGround;
@@ -3706,6 +3820,11 @@
 
         // 12. Multi-Spectral Fireflies & Restrained Atmospheric Glow
         this.renderWeatherAndLighting(ctx, camX, camY, nowMs);
+
+        // 13. Developer-Only Debug Overlay (toggled via ~ / F3 / V; disabled by default)
+        if (this.debugMode) {
+          this.renderDebugOverlay(ctx, camX, camY);
+        }
 
         ctx.restore();
 
@@ -4144,14 +4263,8 @@
           }
         }
 
-        // 2. Render Solid Stone & Elevated Blocks (cols 76..79, 102..106, 130..134, 148..149, 166..167)
-        const solidBlocks = [
-          { col: 76, row: 13, w: 4, h: 2 },
-          { col: 102, row: 12, w: 5, h: 3 },
-          { col: 130, row: 13, w: 5, h: 2 },
-          { col: 148, row: 14, w: 2, h: 1 },
-          { col: 166, row: 14, w: 2, h: 1 }
-        ];
+        // 2. Render Solid Stone & Elevated Blocks (if any)
+        const solidBlocks = [];
         for (const b of solidBlocks) {
           const bx = b.col * TILE_SIZE - camX;
           const by = b.row * TILE_SIZE - camY;
@@ -4212,8 +4325,8 @@
           ctx.fillText(runeSets[i % runeSets.length], px + pw / 2 - 8, py + 9.5);
         }
 
-        // 4. Render Conditional Astral Starlight Bridge across Chasm (cols 150..165, row 14)
-        const bridgeY = 14 * TILE_SIZE - camY;
+        // 4. Render Conditional Astral Starlight Bridge across Chasm (cols 150..165, row 15 — flush with West & East Banks!)
+        const bridgeY = 15 * TILE_SIZE - camY;
         const bridgeStartX = 150 * TILE_SIZE - camX;
         const bridgeEndX = 166 * TILE_SIZE - camX;
         if (bridgeEndX > 0 && bridgeStartX < VIEW_WIDTH) {
@@ -4589,6 +4702,108 @@
         drawHalo(px, py, 28, "rgba(244, 63, 94, 0.14)");
         if (Math.hypot(ax - px, ay - py) < 36) {
           drawHalo((ax + px) / 2, (ay + py) / 2, 42, "rgba(251, 191, 36, 0.15)");
+        }
+        ctx.restore();
+      }
+
+      renderDebugOverlay(ctx, camX, camY) {
+        ctx.save();
+        // 1. Draw solid and one-way tile collision rectangles in visible range
+        const startCol = Math.max(0, Math.floor(camX / TILE_SIZE));
+        const endCol = Math.min(LEVEL_COLS - 1, Math.ceil((camX + VIEW_WIDTH) / TILE_SIZE));
+        for (let r = 0; r < LEVEL_ROWS; r++) {
+          for (let c = startCol; c <= endCol; c++) {
+            const tx = c * TILE_SIZE - camX;
+            const ty = r * TILE_SIZE - camY;
+            if (this.world.isSolidAt(c, r)) {
+              ctx.strokeStyle = "rgba(74, 222, 128, 0.75)";
+              ctx.lineWidth = 0.6;
+              ctx.strokeRect(tx + 0.3, ty + 0.3, TILE_SIZE - 0.6, TILE_SIZE - 0.6);
+            } else if (this.world.isOneWayAt(c, r)) {
+              ctx.strokeStyle = "rgba(0, 242, 254, 0.9)";
+              ctx.lineWidth = 0.8;
+              ctx.strokeRect(tx + 0.4, ty + 0.4, TILE_SIZE - 0.8, 5);
+            } else if (this.world.grid[r][c] === 6) {
+              ctx.strokeStyle = "rgba(251, 113, 133, 0.65)";
+              ctx.setLineDash([2, 2]);
+              ctx.lineWidth = 0.6;
+              ctx.strokeRect(tx + 0.4, ty + 0.4, TILE_SIZE - 0.8, 5);
+              ctx.setLineDash([]);
+            }
+          }
+        }
+
+        // 2. Draw collectible & interactable hitboxes
+        for (const item of this.world.collectibles) {
+          if (item.collected) continue;
+          const ix = item.x - camX;
+          const iy = item.y - camY;
+          if (ix < -20 || ix > VIEW_WIDTH + 20) continue;
+          ctx.strokeStyle = "rgba(250, 204, 21, 0.7)";
+          ctx.lineWidth = 0.6;
+          ctx.beginPath();
+          ctx.arc(ix, iy, 16, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        let nearestObj = null;
+        let nearestDist = Infinity;
+        for (const obj of this.world.interactables) {
+          const dist = Math.hypot(this.ayush.x + 6 - obj.x, this.ayush.y + 8 - obj.y);
+          if (dist < nearestDist) {
+            nearestDist = dist;
+            nearestObj = obj;
+          }
+          const ox = obj.x - camX;
+          const oy = obj.y - camY;
+          if (ox < -40 || ox > VIEW_WIDTH + 40) continue;
+          ctx.strokeStyle = dist <= obj.radius ? "#4ade80" : "rgba(251, 191, 36, 0.55)";
+          ctx.lineWidth = 0.7;
+          ctx.beginPath();
+          ctx.arc(ox, oy, obj.radius, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        // 3. Draw Partner & Ayush AABB Collision Boxes
+        const drawActorBox = (actor, color) => {
+          const ax = actor.x - camX;
+          const ay = actor.y - camY;
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 0.9;
+          ctx.strokeRect(ax, ay, actor.width, actor.height);
+          // Ground sensor bar
+          ctx.fillStyle = actor.onGround ? "#4ade80" : "#fb7185";
+          ctx.fillRect(ax, ay + actor.height - 1.2, actor.width, 1.5);
+        };
+        drawActorBox(this.partner, "#f472b6");
+        drawActorBox(this.ayush, "#38bdf8");
+
+        // 4. Draw Telemetry HUD Panel
+        const activeMission = this.missionManager.getPrimaryTrackedMission();
+        const jumpState = this.ayush.onGround
+          ? "GROUNDED"
+          : this.ayush.vy < 0
+          ? "JUMP_ASCEND"
+          : "AIR_FALL";
+        const lines = [
+          `DEBUG MODE [~ / F3 / V] | FPS Sub-Step: <=8.3ms`,
+          `Ayush Pos: (${this.ayush.x.toFixed(1)}, ${this.ayush.y.toFixed(1)}) Tile: (${Math.floor(this.ayush.x / 16)}, ${Math.floor((this.ayush.y + this.ayush.height) / 16)})`,
+          `Vel: vx=${this.ayush.vx.toFixed(1)}, vy=${this.ayush.vy.toFixed(1)} | Ground=${this.ayush.onGround} | State=${jumpState}`,
+          `Partner: (${this.partner.x.toFixed(1)}, ${this.partner.y.toFixed(1)}) Mode=${this.companionHoldMode ? "HOLD" : "FOLLOW"} | Plate=${this.world.platePressed} | Bridge=${this.world.bridgeUnlockedPermanently}`,
+          `Mission: ${activeMission ? activeMission.id : "ALL_COMPLETE"} | Target: ${nearestObj ? nearestObj.id + " (" + Math.round(nearestDist) + "px)" : "none"}`
+        ];
+
+        ctx.fillStyle = "rgba(2, 6, 23, 0.88)";
+        this.drawRoundedRect(ctx, 112, VIEW_HEIGHT - 54, 256, 48, 4);
+        ctx.fill();
+        ctx.strokeStyle = "#4ade80";
+        ctx.lineWidth = 0.7;
+        ctx.stroke();
+
+        ctx.fillStyle = "#4ade80";
+        ctx.font = "bold 4.5px monospace";
+        for (let i = 0; i < lines.length; i++) {
+          ctx.fillText(lines[i], 117, VIEW_HEIGHT - 46 + i * 8.5);
         }
         ctx.restore();
       }
