@@ -1,0 +1,2337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#120d24" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png" />
+  <link rel="apple-touch-icon" href="./icon-192.png" />
+  <title>Pixel Hearts — Milestone 1 Prototype (Ayush & Partner)</title>
+  <!-- Optional PixiJS v7.4.2 CDN with automatic offline Pixel Engine fallback -->
+  <script src="https://cdn.jsdelivr.net/npm/pixi.js@7.4.2/dist/pixi.min.js" onerror="window.__PIXI_OFFLINE__ = true"></script>
+  <style>
+    :root {
+      --bg-deep: #0d0a1a;
+      --panel-bg: rgba(18, 14, 36, 0.90);
+      --panel-border: #f472b6;
+      --accent-pink: #fb7185;
+      --accent-gold: #fbbf24;
+      --accent-cyan: #38bdf8;
+      --text-main: #f8fafc;
+      --text-dim: #cbd5e1;
+      --touch-scale: 1;
+      --touch-opacity: 0.82;
+      --touch-pad: 18px;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      --app-width: 100vw;
+      --app-height: 100vh;
+      --hud-bottom-offset: 56px;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      overscroll-behavior: none;
+      background: var(--bg-deep);
+      font-family: 'Courier New', Courier, monospace;
+      color: var(--text-main);
+      touch-action: none;
+    }
+
+    #game-root {
+      position: relative;
+      width: var(--app-width, 100vw);
+      height: var(--app-height, 100dvh);
+      max-width: 100%;
+      max-height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background: radial-gradient(circle at center, #1e1638 0%, #090612 100%);
+    }
+
+    canvas {
+      display: block;
+      width: 960px;
+      height: 540px;
+      max-width: 100%;
+      max-height: 100%;
+      aspect-ratio: 16 / 9;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      box-shadow: 0 0 24px rgba(0, 0, 0, 0.85);
+    }
+
+    /* Compact Responsive Top HUD Bar */
+    #hud-top {
+      position: absolute;
+      top: calc(6px + var(--safe-top));
+      left: calc(8px + var(--safe-left));
+      right: calc(8px + var(--safe-right));
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      pointer-events: none;
+      z-index: 25;
+      gap: 8px;
+    }
+
+    .hud-card {
+      background: var(--panel-bg);
+      border: 2px solid rgba(244, 114, 182, 0.55);
+      box-shadow: 0 3px 0 rgba(0, 0, 0, 0.65);
+      border-radius: 8px;
+      padding: 6px 10px;
+      pointer-events: auto;
+      backdrop-filter: blur(4px);
+    }
+
+    .hud-status-card {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+      max-width: calc(100% - 130px);
+    }
+
+    .hud-top-line {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px 10px;
+    }
+
+    .zone-banner {
+      font-size: clamp(10px, 1.6vw, 12px);
+      color: var(--accent-cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .couple-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: clamp(11px, 1.7vw, 13px);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .heart-icon {
+      color: var(--accent-pink);
+      font-size: 14px;
+      animation: pulse 1.4s infinite ease-in-out;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+    }
+
+    .stat-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 4px 10px;
+      font-size: clamp(10px, 1.5vw, 12px);
+      color: var(--text-dim);
+    }
+
+    .stat-pill {
+      color: var(--accent-gold);
+      font-weight: 700;
+    }
+
+    /* Right HUD Controls & Collapsible Mobile Drawer */
+    .hud-right-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      pointer-events: auto;
+      flex-shrink: 0;
+    }
+
+    .hud-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    #btn-hud-menu {
+      display: none;
+    }
+
+    .pixel-btn {
+      background: #271d47;
+      color: var(--text-main);
+      border: 2px solid #f472b6;
+      border-radius: 6px;
+      padding: 5px 9px;
+      font-family: inherit;
+      font-size: clamp(10px, 1.5vw, 12px);
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 3px 0 #090612;
+      transition: transform 0.08s;
+      white-space: nowrap;
+      touch-action: manipulation;
+    }
+
+    .pixel-btn:active {
+      transform: translateY(2px);
+      box-shadow: 0 1px 0 #090612;
+    }
+
+    .pixel-btn.btn-fullscreen-accent {
+      border-color: var(--accent-cyan);
+      color: #e0f2fe;
+    }
+
+    /* Compact Mobile Landscape / Narrow Screen Drawer */
+    @media (max-width: 900px), (max-height: 500px) {
+      .hud-card {
+        padding: 4px 8px;
+      }
+
+      .hud-status-card {
+        max-width: calc(100% - 148px);
+      }
+
+      #btn-hud-menu {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      #hud-actions-drawer {
+        display: none;
+        position: absolute;
+        top: calc(100% + 6px);
+        right: 0;
+        flex-direction: column;
+        align-items: stretch;
+        min-width: 176px;
+        background: rgba(15, 11, 30, 0.96);
+        border: 2px solid var(--accent-pink);
+        border-radius: 8px;
+        padding: 8px;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.8);
+        z-index: 40;
+      }
+
+      #hud-actions-drawer.menu-open {
+        display: flex;
+      }
+
+      #hud-actions-drawer .pixel-btn {
+        width: 100%;
+        text-align: left;
+        padding: 7px 10px;
+        font-size: 12px;
+      }
+    }
+
+    /* Story / Dialogue Toast Banner — Dynamically Positioned Below HUD */
+    #story-banner {
+      position: absolute;
+      top: var(--hud-bottom-offset, 56px);
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(500px, calc(100% - 24px - var(--safe-left) - var(--safe-right)));
+      max-height: min(130px, 34dvh);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      background: rgba(15, 11, 30, 0.94);
+      border: 2px solid var(--accent-gold);
+      border-radius: 8px;
+      padding: 8px 12px;
+      z-index: 22;
+      box-shadow: 0 5px 0 rgba(0, 0, 0, 0.7);
+      transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
+      pointer-events: auto;
+      cursor: pointer;
+    }
+
+    @media (max-height: 440px) and (orientation: landscape) {
+      #story-banner {
+        width: min(420px, calc(100% - 220px - var(--safe-left) - var(--safe-right)));
+        max-height: 28dvh;
+        padding: 6px 10px;
+      }
+    }
+
+    #story-banner.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transform: translateX(-50%) translateY(-6px);
+    }
+
+    .speaker-tag {
+      font-size: clamp(10px, 1.5vw, 11px);
+      font-weight: 700;
+      color: var(--accent-pink);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 3px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .story-text {
+      font-size: clamp(11px, 1.6vw, 13px);
+      line-height: 1.4;
+      color: var(--text-main);
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+
+    /* Adjustable Landscape Touch Controls */
+    #touch-controls {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 30;
+      --base-btn: clamp(44px, min(11.5vw, 15.5dvh), 64px);
+      --eff-btn: min(var(--max-safe-btn, 82px), clamp(38px, calc(var(--base-btn) * var(--touch-scale)), 82px));
+      --eff-btn-c: calc(var(--eff-btn) * 0.86);
+      --eff-gap: min(var(--max-safe-gap, 14px), clamp(5px, calc(9px * var(--touch-scale)), 14px));
+      --eff-pad: min(var(--max-safe-pad, 48px), clamp(8px, var(--touch-pad), 48px));
+    }
+
+    .touch-cluster {
+      position: absolute;
+      bottom: calc(var(--eff-pad) + var(--safe-bottom));
+      display: flex;
+      gap: var(--eff-gap);
+      opacity: var(--touch-opacity);
+      pointer-events: auto;
+    }
+
+    #cluster-left {
+      left: calc(var(--eff-pad) + var(--safe-left));
+      right: auto;
+      align-items: flex-end;
+    }
+
+    #cluster-right {
+      right: calc(var(--eff-pad) + var(--safe-right));
+      left: auto;
+      align-items: flex-end;
+    }
+
+    #touch-controls.touch-cluster-swapped #cluster-left {
+      left: auto;
+      right: calc(var(--eff-pad) + var(--safe-right));
+    }
+
+    #touch-controls.touch-cluster-swapped #cluster-right {
+      right: auto;
+      left: calc(var(--eff-pad) + var(--safe-left));
+    }
+
+    .touch-btn {
+      width: var(--eff-btn);
+      height: var(--eff-btn);
+      border-radius: 14px;
+      background: rgba(30, 22, 58, 0.85);
+      border: 2.5px solid rgba(244, 114, 182, 0.85);
+      color: #fff;
+      font-family: inherit;
+      font-size: clamp(13px, calc(15px * var(--touch-scale)), 20px);
+      font-weight: 700;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 0 rgba(0, 0, 0, 0.75);
+      touch-action: none;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .touch-btn span.sub {
+      font-size: clamp(7px, calc(8.5px * var(--touch-scale)), 11px);
+      color: var(--text-dim);
+      margin-top: 1px;
+      pointer-events: none;
+    }
+
+    .touch-btn.active {
+      background: rgba(244, 114, 182, 0.45);
+      border-color: var(--accent-gold);
+      transform: translateY(3px);
+      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.75);
+    }
+
+    .touch-btn.action-a {
+      border-color: var(--accent-cyan);
+    }
+
+    .touch-btn.action-b {
+      border-color: var(--accent-gold);
+    }
+
+    .touch-btn.action-c {
+      width: var(--eff-btn-c);
+      height: var(--eff-btn-c);
+      border-color: #a78bfa;
+    }
+
+    /* Settings & Controls Customization Modal */
+    #settings-modal {
+      position: absolute;
+      inset: 0;
+      background: rgba(8, 5, 18, 0.84);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 60;
+      padding: calc(12px + var(--safe-top)) calc(12px + var(--safe-right)) calc(12px + var(--safe-bottom)) calc(12px + var(--safe-left));
+    }
+
+    #settings-modal.hidden {
+      display: none;
+    }
+
+    .modal-box {
+      width: min(460px, 94vw);
+      max-height: min(88dvh, 480px);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      touch-action: pan-y;
+      -webkit-overflow-scrolling: touch;
+      background: #16112c;
+      border: 3px solid var(--accent-pink);
+      border-radius: 10px;
+      padding: 14px 16px;
+      box-shadow: 0 10px 0 #05030a;
+    }
+
+    .modal-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--accent-gold);
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .form-row {
+      margin-bottom: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 12px;
+    }
+
+    .form-row label {
+      color: var(--text-dim);
+      font-weight: 700;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .form-row input[type="text"],
+    .form-row select {
+      background: #0d0a1a;
+      border: 2px solid #4c3b7c;
+      color: #fff;
+      padding: 6px 9px;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 13px;
+      user-select: text;
+      -webkit-user-select: text;
+      touch-action: manipulation;
+    }
+
+    .form-row input[type="range"] {
+      accent-color: var(--accent-pink);
+      width: 100%;
+      touch-action: pan-x;
+    }
+
+    /* Portrait Orientation Warning */
+    #orientation-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(13, 10, 26, 0.96);
+      z-index: 100;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 24px;
+      gap: 12px;
+    }
+
+    #orientation-overlay.active {
+      display: flex;
+    }
+
+    .orientation-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-root">
+    <canvas id="game-canvas" width="960" height="540"></canvas>
+
+    <!-- Compact Responsive Top HUD -->
+    <div id="hud-top">
+      <div class="hud-card hud-status-card" id="hud-status-card">
+        <div class="hud-top-line">
+          <span class="zone-banner" id="hud-zone">ZONE 1: OAKVALE VILLAGE</span>
+          <span class="couple-badge">
+            <span>AYUSH</span>
+            <span class="heart-icon">♥</span>
+            <span id="hud-partner-name">AANYA</span>
+            <span style="font-size:10px; color:#a78bfa;" id="hud-companion-mode">[FOLLOWING]</span>
+          </span>
+        </div>
+        <div class="stat-row">
+          <span>♥ Crystals: <strong class="stat-pill" id="hud-crystals">0 / 8</strong></span>
+          <span>✦ Memories: <strong class="stat-pill" id="hud-memories">0 / 3</strong></span>
+          <span>Bridge: <strong class="stat-pill" id="hud-bridge">BROKEN</strong></span>
+        </div>
+      </div>
+
+      <div class="hud-right-wrap" id="hud-right-wrap">
+        <button class="pixel-btn btn-fullscreen-accent" id="btn-fullscreen" title="Toggle Fullscreen & Landscape Lock">⛶ Fullscreen</button>
+        <button class="pixel-btn" id="btn-hud-menu" aria-expanded="false" title="Toggle Quick Actions Menu">☰ Menu</button>
+        <div class="hud-card hud-actions" id="hud-actions-drawer">
+          <button class="pixel-btn" id="btn-weather" title="Cycle Weather">Weather: Fireflies</button>
+          <button class="pixel-btn" id="btn-companion" title="Toggle Partner Hold/Follow (Key: C)">Partner: Follow</button>
+          <button class="pixel-btn" id="btn-settings" title="Customize Touch Controls & Partner Name (Key: P)">⚙ Controls & Name</button>
+          <button class="pixel-btn" id="btn-reset" title="Reset Prototype Level">↺ Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Story / Interactive Prompt Banner -->
+    <div id="story-banner" role="dialog" aria-live="polite">
+      <div class="speaker-tag">
+        <span id="story-speaker">STORY PROLOGUE — LANTERN EVE</span>
+        <span style="color:#94a3b8; cursor:pointer;" id="story-close">[E / Tap to Dismiss]</span>
+      </div>
+      <div class="story-text" id="story-text">
+        Tonight is the Starlight Festival! Walk through Oakvale Village, cross the Whispering Forest, and work together with your partner to repair the Broken Bridge so you can light the Starlight Shrine together.
+      </div>
+    </div>
+
+    <!-- Adjustable Touch Controls -->
+    <div id="touch-controls">
+      <div class="touch-cluster" id="cluster-left">
+        <button class="touch-btn" id="touch-left" data-action="left">◀<span class="sub">LEFT</span></button>
+        <button class="touch-btn" id="touch-right" data-action="right">▶<span class="sub">RIGHT</span></button>
+      </div>
+      <div class="touch-cluster" id="cluster-right">
+        <button class="touch-btn action-c" id="touch-call" data-action="call">♥<span class="sub">STAY/GO</span></button>
+        <button class="touch-btn action-b" id="touch-interact" data-action="interact">B<span class="sub">ACT</span></button>
+        <button class="touch-btn action-a" id="touch-jump" data-action="jump">A<span class="sub">JUMP</span></button>
+      </div>
+    </div>
+
+    <!-- Settings & Adjustable Touch UI Modal -->
+    <div id="settings-modal" class="hidden">
+      <div class="modal-box">
+        <div class="modal-title">
+          <span>♥ PIXEL HEARTS — CONFIG & TOUCH CONTROLS</span>
+          <button class="pixel-btn" id="btn-close-settings">✕ Close</button>
+        </div>
+        <div class="form-row">
+          <label for="input-partner-name">Girlfriend / Partner Display Name</label>
+          <input type="text" id="input-partner-name" maxlength="16" value="Aanya" placeholder="Enter partner name..." />
+        </div>
+        <div class="form-row">
+          <label><span>Touch Button Size</span><span id="val-scale">100%</span></label>
+          <input type="range" id="slider-scale" min="0.75" max="1.40" step="0.05" value="1.0" />
+        </div>
+        <div class="form-row">
+          <label><span>Touch Button Opacity</span><span id="val-opacity">82%</span></label>
+          <input type="range" id="slider-opacity" min="0.35" max="1.0" step="0.05" value="0.82" />
+        </div>
+        <div class="form-row">
+          <label><span>Screen Edge Padding</span><span id="val-pad">18px</span></label>
+          <input type="range" id="slider-pad" min="8" max="56" step="2" value="18" />
+        </div>
+        <div class="form-row">
+          <label for="select-handedness">Control Layout</label>
+          <select id="select-handedness">
+            <option value="standard">Standard (D-Pad Left, Actions Right)</option>
+            <option value="swapped">Left-Handed (Actions Left, D-Pad Right)</option>
+          </select>
+        </div>
+        <div style="font-size:11px; color:#94a3b8; line-height:1.45; margin-top:8px;">
+          <strong>Desktop Keys:</strong> A/D or Left/Right = Move | W/Space/Up = Jump | E/Enter = Interact | C = Command Partner (Follow / Hold Plate) | P = Settings
+        </div>
+      </div>
+    </div>
+
+    <!-- Portrait Orientation Helper -->
+    <div id="orientation-overlay">
+      <div style="font-size:32px;">📱↻</div>
+      <div style="font-size:16px; font-weight:700; color:var(--accent-gold);">Rotate to Landscape for Best Experience</div>
+      <div style="font-size:12px; color:var(--text-dim); max-width:320px; line-height:1.45;">
+        Pixel Hearts is designed for landscape dual-thumb adventure play on Android phones. Tap Fullscreen below or rotate your phone manually.
+      </div>
+      <div class="orientation-actions">
+        <button class="pixel-btn btn-fullscreen-accent" id="btn-orientation-fullscreen">⛶ Fullscreen & Landscape</button>
+        <button class="pixel-btn" id="btn-dismiss-orientation">Continue in Current View</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    "use strict";
+
+    // ============================================================================
+    // 1. CONSTANTS & CONFIGURATION (Milestone 1 Core Architecture)
+    // ============================================================================
+    function safeStorageGet(key, fallback = null) {
+      try {
+        const val = window.safeStorageGet(key);
+        return val !== null ? val : fallback;
+      } catch (_) {
+        return fallback;
+      }
+    }
+
+    function safeStorageSet(key, value) {
+      try {
+        window.safeStorageSet(key, value);
+      } catch (_) {}
+    }
+
+    const VIEW_WIDTH = 480;   // Internal crisp pixel-art resolution (16:9)
+    const VIEW_HEIGHT = 270;
+    const TILE_SIZE = 16;
+    const LEVEL_COLS = 200;   // 200 * 16 = 3200px total world width
+    const LEVEL_ROWS = 18;    // 18 * 16 = 288px total world height
+    const WORLD_WIDTH = LEVEL_COLS * TILE_SIZE;
+    const WORLD_HEIGHT = LEVEL_ROWS * TILE_SIZE;
+
+    const PHYSICS = {
+      GRAVITY: 980,
+      MAX_FALL_SPEED: 340,
+      MOVE_ACCEL: 1150,
+      MOVE_DECEL: 1350,
+      AIR_ACCEL: 780,
+      MAX_MOVE_SPEED: 132,
+      JUMP_VELOCITY: -285,
+      JUMP_CUT_MULTIPLIER: 0.48,
+      COYOTE_TIME_MS: 105,
+      JUMP_BUFFER_MS: 120,
+    };
+
+    // ============================================================================
+    // 2. PROCEDURAL PIXEL-ART SPRITE & TILESET GENERATOR (No Placeholder Rectangles)
+    // ============================================================================
+    class PixelArtFactory {
+      static createCanvas(w, h) {
+        const c = document.createElement("canvas");
+        c.width = w;
+        c.height = h;
+        return c;
+      }
+
+      static drawPattern(ctx, ox, oy, pattern, palette) {
+        for (let y = 0; y < pattern.length; y++) {
+          const row = pattern[y];
+          for (let x = 0; x < row.length; x++) {
+            const ch = row[x];
+            if (ch !== "." && palette[ch]) {
+              ctx.fillStyle = palette[ch];
+              ctx.fillRect(ox + x, oy + y, 1, 1);
+            }
+          }
+        }
+      }
+
+      static generateCharacterFrames(isPartner = false) {
+        // 4 animation states: idle0, idle1, run0, run1, jump
+        const frames = [];
+        const palette = isPartner
+          ? {
+              H: "#2e1a36", // deep plum hair
+              h: "#4c2a59", // hair highlight
+              R: "#fb7185", // rose hair ribbon
+              S: "#ffedd5", // warm skin
+              s: "#fdba74", // skin shadow
+              E: "#1e1b4b", // eyes
+              C: "#e11d48", // crimson adventure tunic
+              c: "#9f1239", // tunic shadow
+              G: "#fde047", // gold trim/belt
+              P: "#312e81", // leggings
+              B: "#451a03", // boots
+            }
+          : {
+              H: "#1e1b4b", // dark midnight hair
+              h: "#312e81", // hair shine
+              R: "#38bdf8", // cyan headband/scarf
+              S: "#ffedd5", // warm skin
+              s: "#fdba74", // skin shadow
+              E: "#0f172a", // eyes
+              C: "#2563eb", // cobalt adventure jacket
+              c: "#1d4ed8", // jacket shadow
+              G: "#fbbf24", // gold buckle
+              P: "#1e293b", // trousers
+              B: "#78350f", // leather boots
+            };
+
+        const baseHead = [
+          "....HHHHHH......",
+          "...HHHHHHHH.....",
+          "..HHHHHHHHHH....".replace("", "h"),
+          "..HHHSSSSSHH....",
+          "..HHSSSSSSSH....",
+          "..RRSSSSESESH...",
+          "...SSSSSSSSS....",
+          "....sSSSSSs.....",
+        ];
+
+        const poses = [
+          // 0: Idle frame 0
+          [
+            ...baseHead,
+            "....RRRRRRR.....",
+            "...CCCCCCCCC....",
+            "..cCCCCCCCCCC...",
+            "..cCCGGGGGGCC...",
+            "..SScCCCCCCcSS..",
+            "....PPPPPPPP....",
+            "....PPP..PPP....",
+            "....PPP..PPP....",
+            "....BBB..BBB....",
+            "....BBB..BBB....",
+          ],
+          // 1: Idle frame 1 (subtle breathe)
+          [
+            "................",
+            ...baseHead,
+            "....RRRRRRR.....",
+            "...CCCCCCCCC....",
+            "..cCCCCCCCCCC...",
+            "..SScGGGGGGcSS..",
+            "....PPPPPPPP....",
+            "....PPP..PPP....",
+            "....PPP..PPP....",
+            "....BBB..BBB....",
+            "....BBB..BBB....",
+          ],
+          // 2: Run stride A
+          [
+            ...baseHead,
+            "...RRRRRRRR.....",
+            "...CCCCCCCCC....",
+            "..SSCCCCCCCCSS..",
+            "...CCGGGGGGCC...",
+            "....PPPPPPPP....",
+            "...PPP....PPP...",
+            "..PPP......PPP..",
+            "..BBB......BBB..",
+            "................",
+            "................",
+          ],
+          // 3: Run stride B
+          [
+            ...baseHead,
+            "....RRRRRRR.....",
+            "...CCCCCCCCC....",
+            "....CCCCCCCC....",
+            "...SSGGGGGGSS...",
+            "....PPPPPPPP....",
+            ".....PPPPPP.....",
+            "....PPP..PPP....",
+            "...BBB....BBB...",
+            "................",
+            "................",
+          ],
+          // 4: Jump / Air
+          [
+            ...baseHead,
+            "..RRRRRRRRRR....",
+            "..SSCCCCCCCCSS..",
+            "...CCCCCCCCCC...",
+            "...CCGGGGGGCC...",
+            "....PPPPPPPP....",
+            "...PPP....PPP...",
+            "...BBB....BBB...",
+            "................",
+            "................",
+            "................",
+          ],
+        ];
+
+        for (const pose of poses) {
+          const canvas = this.createCanvas(16, 18);
+          const ctx = canvas.getContext("2d");
+          this.drawPattern(ctx, 0, 0, pose, palette);
+          frames.push(canvas);
+        }
+        return frames;
+      }
+
+      static generateTiles() {
+        const tiles = {};
+
+        // Grass top turf tile (16x16)
+        tiles.grass = this.createCanvas(16, 16);
+        {
+          const ctx = tiles.grass.getContext("2d");
+          ctx.fillStyle = "#4d2c19";
+          ctx.fillRect(0, 0, 16, 16);
+          // Soil texture speckles
+          ctx.fillStyle = "#3a1f10";
+          for (let i = 0; i < 16; i += 4) {
+            ctx.fillRect(i, 6 + (i % 3) * 2, 2, 2);
+            ctx.fillRect((i + 2) % 16, 11, 2, 2);
+          }
+          // Lush emerald grass top
+          ctx.fillStyle = "#16a34a";
+          ctx.fillRect(0, 0, 16, 4);
+          ctx.fillStyle = "#4ade80";
+          ctx.fillRect(0, 0, 16, 2);
+          // Overhanging blades
+          for (let x = 0; x < 16; x += 3) {
+            ctx.fillStyle = "#15803d";
+            ctx.fillRect(x, 4, 2, (x % 2) + 2);
+          }
+        }
+
+        // Deep earth tile (16x16)
+        tiles.dirt = this.createCanvas(16, 16);
+        {
+          const ctx = tiles.dirt.getContext("2d");
+          ctx.fillStyle = "#3a1f10";
+          ctx.fillRect(0, 0, 16, 16);
+          ctx.fillStyle = "#29150a";
+          ctx.fillRect(2, 3, 3, 2);
+          ctx.fillRect(10, 8, 4, 3);
+          ctx.fillRect(5, 12, 3, 2);
+          ctx.fillStyle = "#5c341d";
+          ctx.fillRect(8, 2, 2, 2);
+          ctx.fillRect(2, 10, 2, 2);
+        }
+
+        // Village cobblestone path tile (16x16)
+        tiles.cobble = this.createCanvas(16, 16);
+        {
+          const ctx = tiles.cobble.getContext("2d");
+          ctx.fillStyle = "#334155";
+          ctx.fillRect(0, 0, 16, 16);
+          ctx.fillStyle = "#64748b";
+          ctx.fillRect(1, 1, 6, 4);
+          ctx.fillRect(8, 1, 7, 4);
+          ctx.fillRect(0, 6, 4, 4);
+          ctx.fillRect(5, 6, 6, 4);
+          ctx.fillRect(12, 6, 4, 4);
+          ctx.fillStyle = "#94a3b8";
+          ctx.fillRect(2, 1, 4, 1);
+          ctx.fillRect(9, 1, 5, 1);
+          ctx.fillStyle = "#1e293b";
+          ctx.fillRect(0, 11, 16, 5);
+        }
+
+        // Wooden bridge / one-way platform plank (16x16)
+        tiles.bridge = this.createCanvas(16, 16);
+        {
+          const ctx = tiles.bridge.getContext("2d");
+          ctx.fillStyle = "#78350f";
+          ctx.fillRect(0, 0, 16, 6);
+          ctx.fillStyle = "#b45309";
+          ctx.fillRect(1, 1, 6, 3);
+          ctx.fillRect(9, 1, 6, 3);
+          ctx.fillStyle = "#fde047";
+          ctx.fillRect(2, 2, 1, 1);
+          ctx.fillRect(13, 2, 1, 1);
+        }
+
+        // Magical glowing bridge plank (extended when puzzle solved/held)
+        tiles.magicBridge = this.createCanvas(16, 16);
+        {
+          const ctx = tiles.magicBridge.getContext("2d");
+          ctx.fillStyle = "#38bdf8";
+          ctx.fillRect(0, 0, 16, 5);
+          ctx.fillStyle = "#e0f2fe";
+          ctx.fillRect(2, 1, 12, 2);
+          ctx.fillStyle = "#f472b6";
+          ctx.fillRect(0, 4, 16, 2);
+        }
+
+        // Stone block / mossy ruin (16x16)
+        tiles.stone = this.createCanvas(16, 16);
+        {
+          const ctx = tiles.stone.getContext("2d");
+          ctx.fillStyle = "#475569";
+          ctx.fillRect(0, 0, 16, 16);
+          ctx.fillStyle = "#64748b";
+          ctx.fillRect(1, 1, 13, 6);
+          ctx.fillRect(1, 9, 6, 6);
+          ctx.fillRect(9, 9, 6, 6);
+          ctx.fillStyle = "#22c55e";
+          ctx.fillRect(1, 0, 5, 2);
+          ctx.fillRect(10, 0, 4, 2);
+        }
+
+        return tiles;
+      }
+    }
+
+    // ============================================================================
+    // 3. LEVEL DESIGN: OAKVALE VILLAGE -> WHISPERING FOREST -> BROKEN BRIDGE -> SHRINE
+    // ============================================================================
+    class LevelWorld {
+      constructor() {
+        // 0 = empty, 1 = grass, 2 = dirt, 3 = cobble, 4 = stone, 5 = one-way wood platform, 6 = magic bridge (conditional)
+        this.grid = Array.from({ length: LEVEL_ROWS }, () => new Uint8Array(LEVEL_COLS));
+        this.bridgeUnlockedPermanently = false;
+        this.platePressed = false;
+        this.shrineLit = false;
+        this.buildLevel();
+      }
+
+      buildLevel() {
+        // Base ground rows (row 15..17) with a chasm at cols 150..165 (Broken Bridge)
+        for (let c = 0; c < LEVEL_COLS; c++) {
+          const isChasm = c >= 150 && c <= 165;
+          if (!isChasm) {
+            // Village uses cobble top (cols 0..66), Forest & Shrine use grass top
+            this.grid[15][c] = c < 66 ? 3 : 1;
+            this.grid[16][c] = 2;
+            this.grid[17][c] = 2;
+          }
+        }
+
+        // Invisible left/right border walls
+        for (let r = 0; r < LEVEL_ROWS; r++) {
+          this.grid[r][0] = 4;
+          this.grid[r][LEVEL_COLS - 1] = 4;
+        }
+
+        // Zone 1: Oakvale Village stepping roofs & flower ledges
+        this.addPlatform(18, 12, 5, 5);
+        this.addPlatform(36, 11, 6, 5);
+        this.addPlatform(52, 12, 5, 5);
+
+        // Zone 2: Whispering Forest verticality, mossy stone ledges & canopy branches
+        this.addSolidBlock(76, 13, 4, 2, 4);
+        this.addPlatform(83, 11, 6, 5);
+        this.addPlatform(92, 9, 6, 5);
+        this.addSolidBlock(102, 12, 5, 3, 1);
+        this.addPlatform(111, 10, 5, 5);
+        this.addPlatform(120, 8, 6, 5);
+        this.addSolidBlock(130, 13, 5, 2, 4);
+
+        // Zone 3: Broken Bridge Chasm (cols 150..165)
+        // Stone abutments on either bank
+        this.addSolidBlock(148, 14, 2, 1, 4);
+        this.addSolidBlock(166, 14, 2, 1, 4);
+        // Magic bridge span across cols 150..165 at row 14
+        for (let c = 150; c <= 165; c++) {
+          this.grid[14][c] = 6; // Type 6 = active only when platePressed or bridgeUnlockedPermanently
+        }
+
+        // High sanctuary ledges near Starlight Shrine (cols 172..195)
+        this.addPlatform(173, 12, 5, 5);
+        this.addPlatform(182, 10, 7, 5);
+
+        // Collectible Heart Crystals (8) & Memory Shards (3)
+        this.collectibles = [
+          { id: "c1", type: "crystal", x: 20 * 16, y: 10.5 * 16, collected: false },
+          { id: "c2", type: "crystal", x: 39 * 16, y: 9.5 * 16, collected: false },
+          { id: "m1", type: "memory", x: 54 * 16, y: 10.5 * 16, collected: false, title: "Memory #1: First Coffee in Oakvale", text: "Ayush still remembers how nervous he was waiting by the village lantern post—until she smiled and made the whole evening glow." },
+          { id: "c3", type: "crystal", x: 78 * 16, y: 11.5 * 16, collected: false },
+          { id: "c4", type: "crystal", x: 86 * 16, y: 9.5 * 16, collected: false },
+          { id: "m2", type: "memory", x: 95 * 16, y: 7.5 * 16, collected: false, title: "Memory #2: Secret Under the Canopy", text: "Even when the forest trails grew steep, we never rushed ahead alone. Every climb feels lighter side by side." },
+          { id: "c5", type: "crystal", x: 113 * 16, y: 8.5 * 16, collected: false },
+          { id: "c6", type: "crystal", x: 123 * 16, y: 6.5 * 16, collected: false },
+          { id: "c7", type: "crystal", x: 157 * 16, y: 12.2 * 16, collected: false },
+          { id: "m3", type: "memory", x: 185 * 16, y: 8.5 * 16, collected: false, title: "Memory #3: Promise at the Bridge", text: "No distance or chasm keeps us apart for long—one holds the anchor while the other builds the way across." },
+          { id: "c8", type: "crystal", x: 175 * 16, y: 10.5 * 16, collected: false },
+        ];
+
+        // Interactive Objects (Signs, Pressure Plate, Bridge Winch, Starlight Shrine)
+        this.interactables = [
+          {
+            id: "village_sign",
+            x: 12 * 16,
+            y: 13 * 16,
+            radius: 28,
+            speaker: "OAKVALE NOTICEBOARD",
+            text: "Welcome to Oakvale! Head East into the Whispering Forest. Tip: Press [B / ACT] near signs or shrines, and press [C / STAY-GO] to ask your partner to hold a pressure plate!",
+          },
+          {
+            id: "elder_cottage",
+            x: 44 * 16,
+            y: 13 * 16,
+            radius: 30,
+            speaker: "LANTERN KEEPER MIRA",
+            text: "The old ravine bridge ahead collapsed in last night's storm! One of you must stand on the West Stone Plate while the other crosses the Starlight Span to crank the East Winch.",
+          },
+          {
+            id: "west_plate",
+            x: 145 * 16,
+            y: 14.5 * 16,
+            radius: 24,
+            speaker: "ANCIENT STONE PRESSURE PLATE",
+            text: "Position your partner here and press [C] (or tap ♥ STAY/GO) so they hold the plate down while Ayush crosses the bridge!",
+          },
+          {
+            id: "east_winch",
+            x: 168 * 16,
+            y: 13.5 * 16,
+            radius: 28,
+            speaker: "EAST BANK BRIDGE WINCH",
+            text: "Press [B / ACT] to lock the suspension cables permanently so your partner can rejoin you!",
+          },
+          {
+            id: "starlight_shrine",
+            x: 190 * 16,
+            y: 13 * 16,
+            radius: 34,
+            speaker: "STARLIGHT COUPLE SHRINE",
+            text: "Bring both Ayush and your partner together at the Shrine and press [B / ACT] to ignite the Starlight Beacon!",
+          },
+        ];
+      }
+
+      addPlatform(colStart, row, len, tileId) {
+        for (let c = colStart; c < colStart + len; c++) {
+          if (c > 0 && c < LEVEL_COLS - 1) this.grid[row][c] = tileId;
+        }
+      }
+
+      addSolidBlock(colStart, rowStart, widthCols, heightRows, tileId) {
+        for (let r = rowStart; r < rowStart + heightRows; r++) {
+          for (let c = colStart; c < colStart + widthCols; c++) {
+            if (r >= 0 && r < LEVEL_ROWS && c > 0 && c < LEVEL_COLS - 1) {
+              this.grid[r][c] = tileId;
+            }
+          }
+        }
+      }
+
+      isSolidAt(col, row) {
+        if (col < 0 || col >= LEVEL_COLS) return true;
+        if (row < 0) return false;
+        if (row >= LEVEL_ROWS) return false;
+        const t = this.grid[row][col];
+        return t === 1 || t === 2 || t === 3 || t === 4;
+      }
+
+      isOneWayAt(col, row) {
+        if (col < 0 || col >= LEVEL_COLS || row < 0 || row >= LEVEL_ROWS) return false;
+        const t = this.grid[row][col];
+        if (t === 5) return true;
+        if (t === 6) return this.platePressed || this.bridgeUnlockedPermanently;
+        return false;
+      }
+    }
+
+    // ============================================================================
+    // 4. UNIFIED INPUT MANAGER (Desktop Keyboard + Multi-Touch Mobile Controls)
+    // ============================================================================
+    class InputManager {
+      constructor() {
+        this.keys = new Set();
+        this.touchActions = new Set();
+        this.activePointers = new Map();
+        this.justPressed = new Set();
+        this.bindKeyboard();
+        this.bindTouchButtons();
+      }
+
+      clearAllInputs() {
+        this.keys.clear();
+        this.touchActions.clear();
+        this.activePointers.clear();
+        document.querySelectorAll(".touch-btn.active").forEach((b) => b.classList.remove("active"));
+      }
+
+      bindKeyboard() {
+        window.addEventListener("keydown", (e) => {
+          if (document.activeElement && document.activeElement.tagName === "INPUT") return;
+          const code = e.code;
+          if (!this.keys.has(code)) {
+            this.justPressed.add(code);
+          }
+          this.keys.add(code);
+          if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(code)) {
+            e.preventDefault();
+          }
+        });
+
+        window.addEventListener("keyup", (e) => {
+          this.keys.delete(e.code);
+        });
+
+        window.addEventListener("blur", () => this.clearAllInputs());
+        window.addEventListener("pagehide", () => this.clearAllInputs());
+        document.addEventListener("visibilitychange", () => {
+          if (document.hidden) this.clearAllInputs();
+        });
+      }
+
+      bindTouchButtons() {
+        const buttons = document.querySelectorAll(".touch-btn");
+        buttons.forEach((btn) => {
+          const action = btn.getAttribute("data-action");
+          const activate = (e) => {
+            e.preventDefault();
+            if (typeof btn.setPointerCapture === "function" && e.pointerId !== undefined) {
+              try {
+                btn.setPointerCapture(e.pointerId);
+              } catch (_) {}
+            }
+            if (!this.touchActions.has(action)) {
+              this.justPressed.add("touch:" + action);
+            }
+            this.touchActions.add(action);
+            if (e.pointerId !== undefined) {
+              this.activePointers.set(e.pointerId, { action, btn });
+            }
+            btn.classList.add("active");
+          };
+
+          const deactivate = (e) => {
+            if (e && e.cancelable) e.preventDefault();
+            if (e && e.pointerId !== undefined) {
+              this.activePointers.delete(e.pointerId);
+            }
+            // Check if another active pointer is still holding the same action
+            let stillHeld = false;
+            for (const entry of this.activePointers.values()) {
+              if (entry.action === action) {
+                stillHeld = true;
+                break;
+              }
+            }
+            if (!stillHeld) {
+              this.touchActions.delete(action);
+              btn.classList.remove("active");
+            }
+          };
+
+          btn.addEventListener("pointerdown", activate);
+          btn.addEventListener("pointerup", deactivate);
+          btn.addEventListener("pointercancel", deactivate);
+          btn.addEventListener("lostpointercapture", deactivate);
+          btn.addEventListener("pointerleave", (e) => {
+            if (typeof btn.hasPointerCapture === "function" && e.pointerId !== undefined && btn.hasPointerCapture(e.pointerId)) {
+              return;
+            }
+            deactivate(e);
+          });
+          btn.addEventListener("contextmenu", (e) => e.preventDefault());
+        });
+      }
+
+      get moveX() {
+        let dir = 0;
+        if (this.keys.has("ArrowLeft") || this.keys.has("KeyA") || this.touchActions.has("left")) dir -= 1;
+        if (this.keys.has("ArrowRight") || this.keys.has("KeyD") || this.touchActions.has("right")) dir += 1;
+        return dir;
+      }
+
+      get jumpHeld() {
+        return (
+          this.keys.has("Space") ||
+          this.keys.has("ArrowUp") ||
+          this.keys.has("KeyW") ||
+          this.touchActions.has("jump")
+        );
+      }
+
+      consumeJumpPress() {
+        const codes = ["Space", "ArrowUp", "KeyW", "touch:jump"];
+        for (const c of codes) {
+          if (this.justPressed.has(c)) {
+            this.justPressed.delete(c);
+            return true;
+          }
+        }
+        return false;
+      }
+
+      consumeInteractPress() {
+        const codes = ["KeyE", "Enter", "touch:interact"];
+        for (const c of codes) {
+          if (this.justPressed.has(c)) {
+            this.justPressed.delete(c);
+            return true;
+          }
+        }
+        return false;
+      }
+
+      consumeCompanionToggle() {
+        const codes = ["KeyC", "touch:call"];
+        for (const c of codes) {
+          if (this.justPressed.has(c)) {
+            this.justPressed.delete(c);
+            return true;
+          }
+        }
+        return false;
+      }
+
+      consumeSettingsToggle() {
+        if (this.justPressed.has("KeyP")) {
+          this.justPressed.delete("KeyP");
+          return true;
+        }
+        return false;
+      }
+
+      endFrame() {
+        this.justPressed.clear();
+      }
+    }
+
+    // ============================================================================
+    // 5. ACTOR ENTITY & DETERMINISTIC AABB / ONE-WAY PLATFORM PHYSICS
+    // ============================================================================
+    class Actor {
+      constructor(name, x, y, frames) {
+        this.name = name;
+        this.x = x;
+        this.y = y;
+        this.vx = 0;
+        this.vy = 0;
+        this.width = 12;
+        this.height = 17;
+        this.facing = 1;
+        this.onGround = false;
+        this.coyoteTimer = 0;
+        this.jumpBufferTimer = 0;
+        this.frames = frames;
+        this.animTimer = 0;
+        this.currentFrame = 0;
+        this.heartTimer = 0;
+      }
+
+      updatePhysics(dt, world, moveDir, jumpPressed, jumpHeld) {
+        const dtMs = dt * 1000;
+        if (this.onGround) {
+          this.coyoteTimer = PHYSICS.COYOTE_TIME_MS;
+        } else {
+          this.coyoteTimer = Math.max(0, this.coyoteTimer - dtMs);
+        }
+
+        if (jumpPressed) {
+          this.jumpBufferTimer = PHYSICS.JUMP_BUFFER_MS;
+        } else {
+          this.jumpBufferTimer = Math.max(0, this.jumpBufferTimer - dtMs);
+        }
+
+        // Horizontal movement with smooth acceleration/deceleration
+        const accel = this.onGround ? PHYSICS.MOVE_ACCEL : PHYSICS.AIR_ACCEL;
+        if (moveDir !== 0) {
+          this.vx += moveDir * accel * dt;
+          this.vx = Math.max(-PHYSICS.MAX_MOVE_SPEED, Math.min(PHYSICS.MAX_MOVE_SPEED, this.vx));
+          this.facing = moveDir > 0 ? 1 : -1;
+        } else {
+          const decel = PHYSICS.MOVE_DECEL * dt;
+          if (Math.abs(this.vx) <= decel) {
+            this.vx = 0;
+          } else {
+            this.vx -= Math.sign(this.vx) * decel;
+          }
+        }
+
+        // Execute buffered or coyote jump
+        if (this.jumpBufferTimer > 0 && this.coyoteTimer > 0) {
+          this.vy = PHYSICS.JUMP_VELOCITY;
+          this.onGround = false;
+          this.coyoteTimer = 0;
+          this.jumpBufferTimer = 0;
+        }
+
+        // Variable jump height cut when button released early
+        if (!jumpHeld && this.vy < -80) {
+          this.vy *= PHYSICS.JUMP_CUT_MULTIPLIER;
+        }
+
+        // Gravity
+        this.vy = Math.min(PHYSICS.MAX_FALL_SPEED, this.vy + PHYSICS.GRAVITY * dt);
+
+        // Separate X-axis sweep
+        this.x += this.vx * dt;
+        this.resolveHorizontalCollisions(world);
+
+        // Separate Y-axis sweep
+        const prevBottom = this.y + this.height;
+        this.y += this.vy * dt;
+        this.resolveVerticalCollisions(world, prevBottom);
+
+        // Respawn safely if fallen into the chasm
+        if (this.y > WORLD_HEIGHT + 36) {
+          this.x = 142 * TILE_SIZE;
+          this.y = 11 * TILE_SIZE;
+          this.vx = 0;
+          this.vy = 0;
+        }
+
+        // Animation frame selection
+        this.animTimer += dt;
+        if (!this.onGround) {
+          this.currentFrame = 4; // Jump/Air frame
+        } else if (Math.abs(this.vx) > 12) {
+          this.currentFrame = 2 + (Math.floor(this.animTimer * 9) % 2);
+        } else {
+          this.currentFrame = Math.floor(this.animTimer * 2.2) % 2;
+        }
+
+        if (this.heartTimer > 0) {
+          this.heartTimer = Math.max(0, this.heartTimer - dt);
+        }
+      }
+
+      resolveHorizontalCollisions(world) {
+        const topRow = Math.floor((this.y + 2) / TILE_SIZE);
+        const bottomRow = Math.floor((this.y + this.height - 2) / TILE_SIZE);
+
+        if (this.vx > 0) {
+          const rightCol = Math.floor((this.x + this.width) / TILE_SIZE);
+          for (let r = topRow; r <= bottomRow; r++) {
+            if (world.isSolidAt(rightCol, r)) {
+              this.x = rightCol * TILE_SIZE - this.width - 0.01;
+              this.vx = 0;
+              break;
+            }
+          }
+        } else if (this.vx < 0) {
+          const leftCol = Math.floor(this.x / TILE_SIZE);
+          for (let r = topRow; r <= bottomRow; r++) {
+            if (world.isSolidAt(leftCol, r)) {
+              this.x = (leftCol + 1) * TILE_SIZE + 0.01;
+              this.vx = 0;
+              break;
+            }
+          }
+        }
+      }
+
+      resolveVerticalCollisions(world, prevBottom) {
+        this.onGround = false;
+        const leftCol = Math.floor((this.x + 2) / TILE_SIZE);
+        const rightCol = Math.floor((this.x + this.width - 2) / TILE_SIZE);
+
+        if (this.vy >= 0) {
+          const bottomRow = Math.floor((this.y + this.height) / TILE_SIZE);
+          for (let c = leftCol; c <= rightCol; c++) {
+            const tileTop = bottomRow * TILE_SIZE;
+            if (
+              world.isSolidAt(c, bottomRow) ||
+              (world.isOneWayAt(c, bottomRow) && prevBottom <= tileTop + 4)
+            ) {
+              this.y = tileTop - this.height;
+              this.vy = 0;
+              this.onGround = true;
+              break;
+            }
+          }
+        } else if (this.vy < 0) {
+          const topRow = Math.floor(this.y / TILE_SIZE);
+          for (let c = leftCol; c <= rightCol; c++) {
+            if (world.isSolidAt(c, topRow)) {
+              this.y = (topRow + 1) * TILE_SIZE;
+              this.vy = 0;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    // ============================================================================
+    // 6. CAMERA2D WITH DEADZONE, LOOK-AHEAD & INTEGER PIXEL SNAPPING
+    // ============================================================================
+    class Camera2D {
+      constructor() {
+        this.x = 0;
+        this.y = 0;
+        this.lookAhead = 0;
+      }
+
+      update(dt, targetActor) {
+        const desiredLook = targetActor.facing * 28;
+        this.lookAhead += (desiredLook - this.lookAhead) * Math.min(1, dt * 4);
+
+        const targetX = targetActor.x + targetActor.width / 2 + this.lookAhead - VIEW_WIDTH / 2;
+        const targetY = targetActor.y + targetActor.height / 2 - VIEW_HEIGHT * 0.58;
+
+        const alpha = 1 - Math.exp(-7.5 * dt);
+        this.x += (targetX - this.x) * alpha;
+        this.y += (targetY - this.y) * alpha;
+
+        this.x = Math.max(0, Math.min(WORLD_WIDTH - VIEW_WIDTH, this.x));
+        this.y = Math.max(0, Math.min(WORLD_HEIGHT - VIEW_HEIGHT, this.y));
+      }
+
+      get renderX() {
+        return Math.round(this.x);
+      }
+
+      get renderY() {
+        return Math.round(this.y);
+      }
+    }
+
+    // ============================================================================
+    // 7. MAIN GAME APPLICATION CONTROLLER
+    // ============================================================================
+    class PixelHeartsMilestone1 {
+      constructor() {
+        this.canvas = document.getElementById("game-canvas");
+        this.ctx = this.canvas.getContext("2d", { alpha: false });
+        this.ctx.imageSmoothingEnabled = false;
+
+        this.offscreen = PixelArtFactory.createCanvas(VIEW_WIDTH, VIEW_HEIGHT);
+        this.offCtx = this.offscreen.getContext("2d", { alpha: false });
+        this.offCtx.imageSmoothingEnabled = false;
+
+        this.tiles = PixelArtFactory.generateTiles();
+        this.ayushFrames = PixelArtFactory.generateCharacterFrames(false);
+        this.partnerFrames = PixelArtFactory.generateCharacterFrames(true);
+
+        this.input = new InputManager();
+        this.world = new LevelWorld();
+        this.camera = new Camera2D();
+
+        this.partnerName = safeStorageGet("ph_partner_name") || "Aanya";
+        this.companionHoldMode = false;
+        this.weatherMode = "fireflies"; // "fireflies" | "petals" | "rain"
+        this.orientationDismissed = false;
+
+        this.ayush = new Actor("Ayush", 8 * TILE_SIZE, 12 * TILE_SIZE, this.ayushFrames);
+        this.partner = new Actor(this.partnerName, 6 * TILE_SIZE, 12 * TILE_SIZE, this.partnerFrames);
+
+        this.particles = [];
+        this.floatingHearts = [];
+        this.initParticles();
+        this.bindUI();
+        this.bindViewportAndFullscreen();
+        this.updateViewportLayout();
+        this.registerServiceWorker();
+
+        this.lastTime = performance.now();
+        requestAnimationFrame((t) => this.loop(t));
+      }
+
+      registerServiceWorker() {
+        if (
+          "serviceWorker" in navigator &&
+          (window.location.protocol === "https:" ||
+            window.location.hostname === "localhost" ||
+            window.location.hostname === "127.0.0.1")
+        ) {
+          navigator.serviceWorker.register("./sw.js").catch(() => {});
+        }
+      }
+
+      initParticles() {
+        this.particles = [];
+        for (let i = 0; i < 48; i++) {
+          this.particles.push({
+            x: Math.random() * VIEW_WIDTH,
+            y: Math.random() * VIEW_HEIGHT,
+            vx: (Math.random() - 0.5) * 18,
+            vy: (Math.random() - 0.5) * 14,
+            phase: Math.random() * Math.PI * 2,
+            size: Math.random() > 0.5 ? 2 : 1,
+          });
+        }
+      }
+
+      bindViewportAndFullscreen() {
+        const onViewportChange = () => {
+          this.updateViewportLayout();
+        };
+
+        window.addEventListener("resize", onViewportChange);
+        window.addEventListener("orientationchange", () => {
+          setTimeout(onViewportChange, 60);
+          setTimeout(onViewportChange, 240);
+        });
+
+        if (window.visualViewport) {
+          window.visualViewport.addEventListener("resize", onViewportChange);
+          window.visualViewport.addEventListener("scroll", onViewportChange);
+        }
+
+        const updateFsLabel = () => {
+          const isFs = Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+          const fsBtn = document.getElementById("btn-fullscreen");
+          if (fsBtn) {
+            fsBtn.textContent = isFs ? "✕ Exit Full" : "⛶ Fullscreen";
+          }
+          onViewportChange();
+        };
+
+        document.addEventListener("fullscreenchange", updateFsLabel);
+        document.addEventListener("webkitfullscreenchange", updateFsLabel);
+
+        const fsBtn = document.getElementById("btn-fullscreen");
+        if (fsBtn) {
+          fsBtn.addEventListener("click", () => this.toggleFullscreen());
+        }
+        const orientFsBtn = document.getElementById("btn-orientation-fullscreen");
+        if (orientFsBtn) {
+          orientFsBtn.addEventListener("click", () => this.toggleFullscreen());
+        }
+      }
+
+      async toggleFullscreen() {
+        const docEl = document.documentElement;
+        const isFs = Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+
+        if (!isFs) {
+          const reqFs = docEl.requestFullscreen || docEl.webkitRequestFullscreen;
+          if (typeof reqFs === "function") {
+            try {
+              await reqFs.call(docEl, { navigationUI: "hide" });
+              if (screen.orientation && typeof screen.orientation.lock === "function") {
+                await screen.orientation.lock("landscape").catch(() => {});
+              }
+            } catch (_) {
+              this.showBanner(
+                "FULLSCREEN NOTICE",
+                "Your browser restricted automatic fullscreen. Rotate your phone to landscape manually, or use 'Add to Home Screen' in Chrome for standalone fullscreen play."
+              );
+            }
+          } else {
+            this.showBanner(
+              "FULLSCREEN & STANDALONE TIP",
+              "Fullscreen API is not supported in this browser tab. Rotate your device to landscape or install Pixel Hearts to your home screen for standalone display."
+            );
+          }
+        } else {
+          const exitFs = document.exitFullscreen || document.webkitExitFullscreen;
+          if (typeof exitFs === "function") {
+            try {
+              await exitFs.call(document);
+            } catch (_) {}
+          }
+        }
+        this.updateViewportLayout();
+      }
+
+      updateViewportLayout() {
+        const vv = window.visualViewport;
+        const vw = Math.round(vv ? vv.width : window.innerWidth);
+        const vh = Math.round(vv ? vv.height : window.innerHeight);
+
+        const rootStyle = document.documentElement.style;
+        rootStyle.setProperty("--app-width", vw + "px");
+        rootStyle.setProperty("--app-height", vh + "px");
+
+        // Ensure touch clusters never overlap or clip even at 140% scale + max padding on narrow screens
+        const sliderPadEl = document.getElementById("slider-pad");
+        const rawPad = sliderPadEl ? parseFloat(sliderPadEl.value) || 18 : 18;
+        const maxSafePad = vw < 540 ? Math.max(8, Math.floor(vw * 0.035)) : 48;
+        const effPad = Math.min(maxSafePad, Math.max(8, rawPad));
+        const maxSafeGap = vw < 540 ? 6 : 14;
+        const availWidth = Math.max(160, vw - 2 * effPad - 20 - 3 * maxSafeGap);
+        const maxSafeBtn = Math.max(36, Math.floor(availWidth / 4.95));
+        rootStyle.setProperty("--max-safe-pad", maxSafePad + "px");
+        rootStyle.setProperty("--max-safe-gap", maxSafeGap + "px");
+        rootStyle.setProperty("--max-safe-btn", maxSafeBtn + "px");
+
+        // Keep canvas strictly proportional at 16:9 (VIEW_WIDTH / VIEW_HEIGHT) without stretching or cropping
+        const targetAspect = VIEW_WIDTH / VIEW_HEIGHT;
+        let displayW = vw;
+        let displayH = Math.round(vw / targetAspect);
+        if (displayH > vh) {
+          displayH = vh;
+          displayW = Math.round(vh * targetAspect);
+        }
+        this.canvas.style.width = displayW + "px";
+        this.canvas.style.height = displayH + "px";
+        this.ctx.imageSmoothingEnabled = false;
+
+        // Portrait orientation overlay check
+        const overlay = document.getElementById("orientation-overlay");
+        const isPortrait = vh > vw;
+        if (overlay) {
+          if (isPortrait && !this.orientationDismissed) {
+            overlay.classList.add("active");
+          } else {
+            overlay.classList.remove("active");
+          }
+        }
+
+        // Measure actual top HUD bottom edge so #story-banner never overlaps #hud-top
+        const statusCard = document.getElementById("hud-status-card");
+        const rightWrap = document.getElementById("hud-right-wrap");
+        let hudBottom = 50;
+        if (statusCard) {
+          const rect = statusCard.getBoundingClientRect();
+          if (rect.bottom > 0) hudBottom = Math.max(hudBottom, Math.ceil(rect.bottom));
+        }
+        if (rightWrap) {
+          const rect2 = rightWrap.getBoundingClientRect();
+          if (rect2.bottom > 0) hudBottom = Math.max(hudBottom, Math.ceil(rect2.bottom));
+        }
+        rootStyle.setProperty("--hud-bottom-offset", (hudBottom + 6) + "px");
+      }
+
+      bindUI() {
+        const partnerLabel = document.getElementById("hud-partner-name");
+        const partnerInput = document.getElementById("input-partner-name");
+        partnerLabel.textContent = this.partnerName.toUpperCase();
+        partnerInput.value = this.partnerName;
+
+        partnerInput.addEventListener("input", () => {
+          const val = partnerInput.value.trim() || "Aanya";
+          this.partnerName = val;
+          this.partner.name = val;
+          partnerLabel.textContent = val.toUpperCase();
+          safeStorageSet("ph_partner_name", val);
+          this.updateViewportLayout();
+        });
+
+        const menuBtn = document.getElementById("btn-hud-menu");
+        const drawer = document.getElementById("hud-actions-drawer");
+        const closeMenu = () => {
+          if (drawer && menuBtn) {
+            drawer.classList.remove("menu-open");
+            menuBtn.setAttribute("aria-expanded", "false");
+          }
+        };
+
+        if (menuBtn && drawer) {
+          menuBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const open = drawer.classList.toggle("menu-open");
+            menuBtn.setAttribute("aria-expanded", open ? "true" : "false");
+          });
+          document.addEventListener("pointerdown", (e) => {
+            if (drawer.classList.contains("menu-open") && !drawer.contains(e.target) && e.target !== menuBtn) {
+              closeMenu();
+            }
+          });
+        }
+
+        document.getElementById("btn-weather").addEventListener("click", () => {
+          const modes = ["fireflies", "petals", "rain"];
+          const labels = {
+            fireflies: "Weather: Fireflies",
+            petals: "Weather: Sakura Petals",
+            rain: "Weather: Lantern Rain",
+          };
+          const nextIdx = (modes.indexOf(this.weatherMode) + 1) % modes.length;
+          this.weatherMode = modes[nextIdx];
+          document.getElementById("btn-weather").textContent = labels[this.weatherMode];
+          closeMenu();
+        });
+
+        document.getElementById("btn-companion").addEventListener("click", () => {
+          this.toggleCompanionMode();
+          closeMenu();
+        });
+
+        const modal = document.getElementById("settings-modal");
+        document.getElementById("btn-settings").addEventListener("click", () => {
+          modal.classList.toggle("hidden");
+          closeMenu();
+        });
+        document.getElementById("btn-close-settings").addEventListener("click", () => {
+          modal.classList.add("hidden");
+        });
+
+        document.getElementById("btn-reset").addEventListener("click", () => {
+          this.resetLevel();
+          closeMenu();
+        });
+
+        const storyBanner = document.getElementById("story-banner");
+        document.getElementById("story-close").addEventListener("click", (e) => {
+          e.stopPropagation();
+          storyBanner.classList.add("hidden");
+        });
+        storyBanner.addEventListener("click", () => {
+          storyBanner.classList.add("hidden");
+        });
+
+        document.getElementById("btn-dismiss-orientation").addEventListener("click", () => {
+          this.orientationDismissed = true;
+          document.getElementById("orientation-overlay").classList.remove("active");
+          this.updateViewportLayout();
+        });
+
+        // Touch customization sliders with persistence
+        const rootStyle = document.documentElement.style;
+        const sliderScale = document.getElementById("slider-scale");
+        const sliderOpacity = document.getElementById("slider-opacity");
+        const sliderPad = document.getElementById("slider-pad");
+        const selectHand = document.getElementById("select-handedness");
+        const touchControls = document.getElementById("touch-controls");
+
+        const savedScale = safeStorageGet("ph_touch_scale");
+        const savedOpacity = safeStorageGet("ph_touch_opacity");
+        const savedPad = safeStorageGet("ph_touch_pad");
+        const savedHand = safeStorageGet("ph_touch_hand");
+
+        if (savedScale) {
+          sliderScale.value = savedScale;
+          rootStyle.setProperty("--touch-scale", savedScale);
+          document.getElementById("val-scale").textContent = Math.round( parseFloat(savedScale) * 100 ) + "%";
+        }
+        if (savedOpacity) {
+          sliderOpacity.value = savedOpacity;
+          rootStyle.setProperty("--touch-opacity", savedOpacity);
+          document.getElementById("val-opacity").textContent = Math.round( parseFloat(savedOpacity) * 100 ) + "%";
+        }
+        if (savedPad) {
+          sliderPad.value = savedPad;
+          rootStyle.setProperty("--touch-pad", savedPad + "px");
+          document.getElementById("val-pad").textContent = savedPad + "px";
+        }
+        if (savedHand === "swapped") {
+          selectHand.value = "swapped";
+          touchControls.classList.add("touch-cluster-swapped");
+        }
+
+        sliderScale.addEventListener("input", () => {
+          rootStyle.setProperty("--touch-scale", sliderScale.value);
+          document.getElementById("val-scale").textContent = Math.round(sliderScale.value * 100) + "%";
+          safeStorageSet("ph_touch_scale", sliderScale.value);
+        });
+        sliderOpacity.addEventListener("input", () => {
+          rootStyle.setProperty("--touch-opacity", sliderOpacity.value);
+          document.getElementById("val-opacity").textContent = Math.round(sliderOpacity.value * 100) + "%";
+          safeStorageSet("ph_touch_opacity", sliderOpacity.value);
+        });
+        sliderPad.addEventListener("input", () => {
+          rootStyle.setProperty("--touch-pad", sliderPad.value + "px");
+          document.getElementById("val-pad").textContent = sliderPad.value + "px";
+          safeStorageSet("ph_touch_pad", sliderPad.value);
+        });
+        selectHand.addEventListener("change", () => {
+          if (selectHand.value === "swapped") {
+            touchControls.classList.add("touch-cluster-swapped");
+          } else {
+            touchControls.classList.remove("touch-cluster-swapped");
+          }
+          safeStorageSet("ph_touch_hand", selectHand.value);
+        });
+      }
+
+      resetLevel() {
+        this.world = new LevelWorld();
+        this.ayush.x = 8 * TILE_SIZE;
+        this.ayush.y = 12 * TILE_SIZE;
+        this.ayush.vx = 0;
+        this.ayush.vy = 0;
+        this.partner.x = 6 * TILE_SIZE;
+        this.partner.y = 12 * TILE_SIZE;
+        this.partner.vx = 0;
+        this.partner.vy = 0;
+        this.companionHoldMode = false;
+        this.updateCompanionUI();
+        this.updateStatsUI();
+        this.showBanner(
+          "PROTOTYPE RESET",
+          "Back in Oakvale Village! Explore the village, collect Heart Crystals and Memories, and solve the Broken Bridge puzzle together."
+        );
+      }
+
+      toggleCompanionMode() {
+        this.companionHoldMode = !this.companionHoldMode;
+        this.partner.heartTimer = 1.1;
+        this.ayush.heartTimer = 1.1;
+        this.spawnHeartBurst(this.partner.x + 6, this.partner.y - 4);
+        this.updateCompanionUI();
+
+        // If near West Pressure Plate, snap partner onto the plate when told to hold
+        const plateX = 145 * TILE_SIZE;
+        if (this.companionHoldMode && Math.abs(this.partner.x - plateX) < 36) {
+          this.partner.x = plateX;
+          this.showBanner(
+            this.partnerName.toUpperCase() + " — HOLDING PLATE",
+            `"I've got the West Pressure Plate held down, Ayush! Cross the Starlight Bridge and lock the East Winch!"`
+          );
+        }
+      }
+
+      updateCompanionUI() {
+        const modeTag = document.getElementById("hud-companion-mode");
+        const btn = document.getElementById("btn-companion");
+        if (this.companionHoldMode) {
+          modeTag.textContent = "[HOLDING SPOT]";
+          modeTag.style.color = "#fbbf24";
+          btn.textContent = "Partner: Hold";
+        } else {
+          modeTag.textContent = "[FOLLOWING]";
+          modeTag.style.color = "#a78bfa";
+          btn.textContent = "Partner: Follow";
+        }
+      }
+
+      showBanner(speaker, text) {
+        this.updateViewportLayout();
+        const banner = document.getElementById("story-banner");
+        document.getElementById("story-speaker").textContent = speaker;
+        document.getElementById("story-text").textContent = text;
+        banner.classList.remove("hidden");
+      }
+
+      spawnHeartBurst(x, y) {
+        for (let i = 0; i < 5; i++) {
+          this.floatingHearts.push({
+            x: x + (Math.random() - 0.5) * 12,
+            y: y - Math.random() * 6,
+            vy: -18 - Math.random() * 14,
+            life: 1.0,
+          });
+        }
+      }
+
+      update(dt) {
+        if (this.input.consumeSettingsToggle()) {
+          document.getElementById("settings-modal").classList.toggle("hidden");
+        }
+        if (this.input.consumeCompanionToggle()) {
+          this.toggleCompanionMode();
+        }
+
+        // Update Ayush physics
+        const moveX = this.input.moveX;
+        const jumpPressed = this.input.consumeJumpPress();
+        const jumpHeld = this.input.jumpHeld;
+        this.ayush.updatePhysics(dt, this.world, moveX, jumpPressed, jumpHeld);
+
+        // Update Partner AI Companion
+        let partnerMove = 0;
+        let partnerJump = false;
+        if (!this.companionHoldMode) {
+          const dx = this.ayush.x - this.partner.x;
+          // Do not walk into the chasm if bridge is not active
+          const nearChasmEdge =
+            !this.world.platePressed &&
+            !this.world.bridgeUnlockedPermanently &&
+            this.partner.x > 146 * TILE_SIZE &&
+            this.partner.x < 150 * TILE_SIZE &&
+            dx > 0;
+
+          if (!nearChasmEdge && Math.abs(dx) > 24) {
+            partnerMove = dx > 0 ? 1 : -1;
+            // Jump if Ayush is higher or if blocked by a step
+            if (
+              this.partner.onGround &&
+              (this.ayush.y < this.partner.y - 14 || Math.abs(this.partner.vx) < 5)
+            ) {
+              partnerJump = true;
+            }
+          }
+          // Teleport catch-up if partner gets left very far behind AND bridge is unlocked
+          if (Math.abs(dx) > 340 && (this.world.bridgeUnlockedPermanently || this.ayush.x < 148 * TILE_SIZE)) {
+            this.partner.x = this.ayush.x - this.ayush.facing * 20;
+            this.partner.y = this.ayush.y;
+            this.spawnHeartBurst(this.partner.x, this.partner.y);
+          }
+        }
+        this.partner.updatePhysics(dt, this.world, partnerMove, partnerJump, partnerJump);
+
+        // Check West Bank Pressure Plate (col 145)
+        const plateX = 145 * TILE_SIZE;
+        const ayushOnPlate = Math.abs(this.ayush.x - plateX) < 18 && this.ayush.onGround;
+        const partnerOnPlate = Math.abs(this.partner.x - plateX) < 18 && this.partner.onGround;
+        this.world.platePressed = ayushOnPlate || partnerOnPlate || this.world.bridgeUnlockedPermanently;
+
+        // Collectibles check (both Ayush and Partner can pick up shared items)
+        for (const item of this.world.collectibles) {
+          if (item.collected) continue;
+          const dAyush = Math.hypot(this.ayush.x + 6 - item.x, this.ayush.y + 8 - item.y);
+          const dPartner = Math.hypot(this.partner.x + 6 - item.x, this.partner.y + 8 - item.y);
+          if (dAyush < 16 || dPartner < 16) {
+            item.collected = true;
+            this.spawnHeartBurst(item.x, item.y);
+            if (item.type === "memory") {
+              this.showBanner(item.title, item.text);
+            }
+            this.updateStatsUI();
+          }
+        }
+
+        // Handle Interact [B / E]
+        if (this.input.consumeInteractPress()) {
+          let handled = false;
+          for (const obj of this.world.interactables) {
+            const dist = Math.hypot(this.ayush.x + 6 - obj.x, this.ayush.y + 8 - obj.y);
+            if (dist <= obj.radius) {
+              handled = true;
+              if (obj.id === "east_winch") {
+                this.world.bridgeUnlockedPermanently = true;
+                this.companionHoldMode = false;
+                this.updateCompanionUI();
+                this.updateStatsUI();
+                this.spawnHeartBurst(obj.x, obj.y - 10);
+                this.showBanner(
+                  "BRIDGE REPAIRED!",
+                  `Ayush locked the East Winch! The Starlight Bridge is now permanently anchored, and ${this.partnerName} is running across to join you!`
+                );
+              } else if (obj.id === "starlight_shrine") {
+                const partnerDist = Math.hypot(this.partner.x + 6 - obj.x, this.partner.y + 8 - obj.y);
+                if (partnerDist < 56) {
+                  this.world.shrineLit = true;
+                  this.spawnHeartBurst(this.ayush.x, this.ayush.y - 8);
+                  this.spawnHeartBurst(this.partner.x, this.partner.y - 8);
+                  this.showBanner(
+                    `♥ MILESTONE 1 COMPLETE — AYUSH & ${this.partnerName.toUpperCase()} ♥`,
+                    `Together you unlocked the Starlight Shrine! Crystals collected: ${this.world.collectibles.filter((c) => c.type === "crystal" && c.collected).length}/8 | Shared Memories: ${this.world.collectibles.filter((c) => c.type === "memory" && c.collected).length}/3.`
+                  );
+                } else {
+                  this.showBanner(
+                    "STARLIGHT SHRINE",
+                    `Both hearts are needed to light the beacon! Make sure ${this.partnerName} is in Follow mode ([C]) and standing beside you.`
+                  );
+                }
+              } else {
+                this.showBanner(obj.speaker, obj.text);
+              }
+              break;
+            }
+          }
+          if (!handled) {
+            // Dismiss story banner or do a couple heart emote
+            const banner = document.getElementById("story-banner");
+            if (!banner.classList.contains("hidden")) {
+              banner.classList.add("hidden");
+            } else {
+              this.spawnHeartBurst(this.ayush.x + 6, this.ayush.y - 4);
+            }
+          }
+        }
+
+        // Update Zone Indicator
+        const zoneEl = document.getElementById("hud-zone");
+        if (this.ayush.x < 68 * TILE_SIZE) {
+          zoneEl.textContent = "ZONE 1: OAKVALE VILLAGE";
+        } else if (this.ayush.x < 140 * TILE_SIZE) {
+          zoneEl.textContent = "ZONE 2: WHISPERING FOREST";
+        } else {
+          zoneEl.textContent = "ZONE 3: BROKEN BRIDGE & SHRINE";
+        }
+
+        // Update Camera & Weather Particles
+        this.camera.update(dt, this.ayush);
+        this.updateParticles(dt);
+        this.input.endFrame();
+      }
+
+      updateStatsUI() {
+        const crystals = this.world.collectibles.filter((c) => c.type === "crystal" && c.collected).length;
+        const memories = this.world.collectibles.filter((c) => c.type === "memory" && c.collected).length;
+        document.getElementById("hud-crystals").textContent = `${crystals} / 8`;
+        document.getElementById("hud-memories").textContent = `${memories} / 3`;
+        const bridgeEl = document.getElementById("hud-bridge");
+        if (this.world.bridgeUnlockedPermanently) {
+          bridgeEl.textContent = "LOCKED ♥";
+          bridgeEl.style.color = "#4ade80";
+        } else if (this.world.platePressed) {
+          bridgeEl.textContent = "ACTIVE (HELD)";
+          bridgeEl.style.color = "#38bdf8";
+        } else {
+          bridgeEl.textContent = "BROKEN";
+          bridgeEl.style.color = "#fb7185";
+        }
+      }
+
+      updateParticles(dt) {
+        for (const p of this.particles) {
+          p.phase += dt * 2.5;
+          if (this.weatherMode === "fireflies") {
+            p.x += Math.cos(p.phase) * 12 * dt;
+            p.y += Math.sin(p.phase * 1.3) * 10 * dt;
+          } else if (this.weatherMode === "petals") {
+            p.x -= 28 * dt + Math.sin(p.phase) * 8 * dt;
+            p.y += 22 * dt;
+          } else {
+            p.x -= 18 * dt;
+            p.y += 145 * dt;
+          }
+          if (p.x < 0) p.x += VIEW_WIDTH;
+          if (p.x > VIEW_WIDTH) p.x -= VIEW_WIDTH;
+          if (p.y < 0) p.y += VIEW_HEIGHT;
+          if (p.y > VIEW_HEIGHT) p.y -= VIEW_HEIGHT;
+        }
+
+        for (let i = this.floatingHearts.length - 1; i >= 0; i--) {
+          const h = this.floatingHearts[i];
+          h.y += h.vy * dt;
+          h.life -= dt * 0.9;
+          if (h.life <= 0) this.floatingHearts.splice(i, 1);
+        }
+      }
+
+      // ==========================================================================
+      // 8. PIXEL-PERFECT LAYERED RENDERER (Parallax, Scenery, Tiles, Actors, Glow)
+      // ==========================================================================
+      render(nowMs) {
+        const ctx = this.offCtx;
+        const camX = this.camera.renderX;
+        const camY = this.camera.renderY;
+
+        // 1. Twilight Sky Gradient
+        const grad = ctx.createLinearGradient(0, 0, 0, VIEW_HEIGHT);
+        grad.addColorStop(0, "#0b0719");
+        grad.addColorStop(0.55, "#1e153a");
+        grad.addColorStop(1, "#3b1d4a");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
+
+        // 2. Parallax Stars & Crescent Moon (0.05x scroll)
+        ctx.fillStyle = "#fef08a";
+        ctx.fillRect(390 - Math.floor(camX * 0.03), 28, 14, 14);
+        ctx.fillStyle = "#120c24";
+        ctx.fillRect(395 - Math.floor(camX * 0.03), 26, 12, 12);
+
+        for (let i = 0; i < 32; i++) {
+          const sx = ((i * 73 - Math.floor(camX * 0.05)) % VIEW_WIDTH + VIEW_WIDTH) % VIEW_WIDTH;
+          const sy = (i * 29) % 130;
+          ctx.fillStyle = i % 3 === 0 ? "#fde047" : "#e2e8f0";
+          ctx.fillRect(sx, sy, 1, 1);
+        }
+
+        // 3. Parallax Mountain Silhouettes (0.18x scroll)
+        ctx.fillStyle = "#191233";
+        for (let i = 0; i < 12; i++) {
+          const mx = ((i * 95 - Math.floor(camX * 0.18)) % (VIEW_WIDTH + 120)) - 60;
+          const mh = 70 + (i % 3) * 24;
+          ctx.beginPath();
+          ctx.moveTo(mx, VIEW_HEIGHT);
+          ctx.lineTo(mx + 65, VIEW_HEIGHT - mh);
+          ctx.lineTo(mx + 130, VIEW_HEIGHT);
+          ctx.fill();
+        }
+
+        // 4. Parallax Distant Pine Canopy (0.38x scroll)
+        ctx.fillStyle = "#111c2d";
+        for (let i = 0; i < 24; i++) {
+          const tx = ((i * 44 - Math.floor(camX * 0.38)) % (VIEW_WIDTH + 60)) - 30;
+          const th = 48 + (i % 4) * 10;
+          ctx.fillRect(tx, VIEW_HEIGHT - th, 28, th);
+        }
+
+        // 5. World Background Architecture (Village Cottages, Forest Trees, Shrine)
+        this.renderWorldBackdrop(ctx, camX, camY, nowMs);
+
+        // 6. Tilemap Layer
+        const startCol = Math.max(0, Math.floor(camX / TILE_SIZE));
+        const endCol = Math.min(LEVEL_COLS - 1, Math.ceil((camX + VIEW_WIDTH) / TILE_SIZE));
+        const startRow = Math.max(0, Math.floor(camY / TILE_SIZE));
+        const endRow = Math.min(LEVEL_ROWS - 1, Math.ceil((camY + VIEW_HEIGHT) / TILE_SIZE));
+
+        for (let r = startRow; r <= endRow; r++) {
+          for (let c = startCol; c <= endCol; c++) {
+            const t = this.world.grid[r][c];
+            if (t === 0) continue;
+            const sx = c * TILE_SIZE - camX;
+            const sy = r * TILE_SIZE - camY;
+            if (t === 1) ctx.drawImage(this.tiles.grass, sx, sy);
+            else if (t === 2) ctx.drawImage(this.tiles.dirt, sx, sy);
+            else if (t === 3) ctx.drawImage(this.tiles.cobble, sx, sy);
+            else if (t === 4) ctx.drawImage(this.tiles.stone, sx, sy);
+            else if (t === 5) ctx.drawImage(this.tiles.bridge, sx, sy);
+            else if (t === 6) {
+              if (this.world.platePressed || this.world.bridgeUnlockedPermanently) {
+                ctx.drawImage(this.tiles.magicBridge, sx, sy);
+              } else if (c % 2 === 0) {
+                // Faint ghost outline of broken bridge
+                ctx.fillStyle = "rgba(56, 189, 248, 0.22)";
+                ctx.fillRect(sx + 2, sy + 1, 12, 3);
+              }
+            }
+          }
+        }
+
+        // 7. Interactive Props & Collectibles
+        this.renderPropsAndCollectibles(ctx, camX, camY, nowMs);
+
+        // 8. Characters (Partner & Ayush) + Nameplates
+        this.drawActor(ctx, this.partner, camX, camY, "#fb7185");
+        this.drawActor(ctx, this.ayush, camX, camY, "#38bdf8");
+
+        // 9. Floating Heart Emotes
+        for (const h of this.floatingHearts) {
+          const hx = Math.round(h.x - camX);
+          const hy = Math.round(h.y - camY);
+          ctx.fillStyle = "#fb7185";
+          ctx.fillRect(hx, hy, 2, 2);
+          ctx.fillRect(hx + 3, hy, 2, 2);
+          ctx.fillRect(hx - 1, hy + 1, 7, 2);
+          ctx.fillRect(hx + 1, hy + 3, 3, 2);
+          ctx.fillRect(hx + 2, hy + 5, 1, 1);
+        }
+
+        // 10. Weather Particles & Restrained Lantern Lighting
+        this.renderWeatherAndLighting(ctx, camX, camY, nowMs);
+
+        // Blit crisp offscreen buffer to responsive display canvas
+        this.ctx.drawImage(this.offscreen, 0, 0, this.canvas.width, this.canvas.height);
+      }
+
+      renderWorldBackdrop(ctx, camX, camY, nowMs) {
+        const groundY = 15 * TILE_SIZE - camY;
+
+        // Zone 1 Cottages in Oakvale Village
+        const cottages = [
+          { col: 15, w: 68, h: 52, roof: "#be123c" },
+          { col: 34, w: 78, h: 60, roof: "#9333ea" },
+          { col: 50, w: 64, h: 50, roof: "#b45309" },
+        ];
+        for (const cot of cottages) {
+          const cx = cot.col * TILE_SIZE - camX;
+          if (cx + cot.w < 0 || cx > VIEW_WIDTH) continue;
+          const cy = groundY - cot.h;
+          // Timber walls
+          ctx.fillStyle = "#fde68a";
+          ctx.fillRect(cx + 4, cy + 16, cot.w - 8, cot.h - 16);
+          ctx.fillStyle = "#78350f";
+          ctx.fillRect(cx + 4, cy + 16, 4, cot.h - 16);
+          ctx.fillRect(cx + cot.w - 8, cy + 16, 4, cot.h - 16);
+          ctx.fillRect(cx + 4, cy + 34, cot.w - 8, 3);
+          // Pitched roof
+          ctx.fillStyle = cot.roof;
+          ctx.fillRect(cx, cy + 8, cot.w, 10);
+          ctx.fillRect(cx + 6, cy, cot.w - 12, 8);
+          // Warm glowing window
+          ctx.fillStyle = "#fef08a";
+          ctx.fillRect(cx + 16, cy + 22, 12, 10);
+          ctx.fillStyle = "#78350f";
+          ctx.fillRect(cx + 21, cy + 22, 2, 10);
+          // Wooden door
+          ctx.fillStyle = "#451a03";
+          ctx.fillRect(cx + cot.w - 24, cy + cot.h - 22, 12, 22);
+        }
+
+        // Zone 2 Whispering Forest Ancient Trees
+        for (let c = 70; c <= 142; c += 9) {
+          const tx = c * TILE_SIZE - camX;
+          if (tx < -48 || tx > VIEW_WIDTH + 48) continue;
+          const trunkH = 74 + (c % 3) * 14;
+          ctx.fillStyle = "#3f2314";
+          ctx.fillRect(tx + 12, groundY - trunkH, 12, trunkH);
+          ctx.fillStyle = "#064e3b";
+          ctx.fillRect(tx - 8, groundY - trunkH - 18, 52, 28);
+          ctx.fillStyle = "#047857";
+          ctx.fillRect(tx - 2, groundY - trunkH - 28, 40, 18);
+        }
+
+        // Zone 3 Starlight Couple Shrine at col 190
+        const sx = 190 * TILE_SIZE - camX;
+        if (sx > -60 && sx < VIEW_WIDTH + 60) {
+          ctx.fillStyle = "#475569";
+          ctx.fillRect(sx - 18, groundY - 8, 52, 8);
+          ctx.fillRect(sx - 12, groundY - 48, 8, 40);
+          ctx.fillRect(sx + 20, groundY - 48, 8, 40);
+          ctx.fillStyle = "#94a3b8";
+          ctx.fillRect(sx - 16, groundY - 56, 48, 8);
+          // Shrine core crystal
+          const pulse = Math.sin(nowMs * 0.005) * 2;
+          ctx.fillStyle = this.world.shrineLit ? "#fb7185" : "#38bdf8";
+          ctx.fillRect(sx + 3, groundY - 34 + pulse, 10, 14);
+        }
+      }
+
+      renderPropsAndCollectibles(ctx, camX, camY, nowMs) {
+        const groundY = 15 * TILE_SIZE - camY;
+
+        // Village & Forest Lantern Posts
+        const lanternCols = [10, 28, 46, 64, 88, 116, 144, 169, 186];
+        for (const col of lanternCols) {
+          const lx = col * TILE_SIZE - camX;
+          if (lx < -20 || lx > VIEW_WIDTH + 20) continue;
+          ctx.fillStyle = "#1e293b";
+          ctx.fillRect(lx + 6, groundY - 30, 3, 30);
+          ctx.fillRect(lx + 4, groundY - 32, 9, 3);
+          ctx.fillStyle = "#fef08a";
+          ctx.fillRect(lx + 9, groundY - 29, 4, 5);
+        }
+
+        // West Bank Pressure Plate (col 145)
+        const px = 145 * TILE_SIZE - camX;
+        const py = 15 * TILE_SIZE - camY;
+        ctx.fillStyle = this.world.platePressed ? "#38bdf8" : "#fb7185";
+        ctx.fillRect(px, py - (this.world.platePressed ? 2 : 5), 16, this.world.platePressed ? 2 : 5);
+
+        // East Bank Winch (col 168)
+        const wx = 168 * TILE_SIZE - camX;
+        ctx.fillStyle = "#78350f";
+        ctx.fillRect(wx + 2, py - 16, 12, 16);
+        ctx.fillStyle = this.world.bridgeUnlockedPermanently ? "#4ade80" : "#fbbf24";
+        ctx.fillRect(wx + 4, py - 14, 8, 8);
+
+        // Collectibles (Crystals & Memory Shards)
+        const bob = Math.sin(nowMs * 0.005) * 3;
+        for (const item of this.world.collectibles) {
+          if (item.collected) continue;
+          const ix = Math.round(item.x - camX);
+          const iy = Math.round(item.y - camY + bob);
+          if (ix < -16 || ix > VIEW_WIDTH + 16) continue;
+
+          if (item.type === "crystal") {
+            ctx.fillStyle = "#fb7185";
+            ctx.fillRect(ix + 2, iy, 6, 8);
+            ctx.fillRect(ix, iy + 2, 10, 4);
+            ctx.fillStyle = "#ffe4e6";
+            ctx.fillRect(ix + 3, iy + 2, 2, 2);
+          } else {
+            // Golden Star Memory Shard
+            ctx.fillStyle = "#fbbf24";
+            ctx.fillRect(ix + 3, iy - 1, 4, 10);
+            ctx.fillRect(ix, iy + 2, 10, 4);
+            ctx.fillStyle = "#fef9c3";
+            ctx.fillRect(ix + 4, iy + 3, 2, 2);
+          }
+        }
+
+        // Nearby interaction prompt indicator above Ayush
+        for (const obj of this.world.interactables) {
+          const dist = Math.hypot(this.ayush.x + 6 - obj.x, this.ayush.y + 8 - obj.y);
+          if (dist <= obj.radius) {
+            const ox = Math.round(obj.x - camX);
+            const oy = Math.round(obj.y - camY - 22);
+            ctx.fillStyle = "rgba(15, 23, 42, 0.9)";
+            ctx.fillRect(ox - 18, oy - 10, 44, 11);
+            ctx.strokeStyle = "#fbbf24";
+            ctx.strokeRect(ox - 18, oy - 10, 44, 11);
+            ctx.fillStyle = "#fbbf24";
+            ctx.font = "bold 7px monospace";
+            ctx.fillText("[B / E]", ox - 13, oy - 2);
+          }
+        }
+      }
+
+      drawActor(ctx, actor, camX, camY, tagColor) {
+        const sx = Math.round(actor.x - camX) - 2;
+        const sy = Math.round(actor.y - camY) - 1;
+        const frame = actor.frames[actor.currentFrame] || actor.frames[0];
+
+        ctx.save();
+        if (actor.facing < 0) {
+          ctx.translate(sx + 16, sy);
+          ctx.scale(-1, 1);
+          ctx.drawImage(frame, 0, 0);
+        } else {
+          ctx.drawImage(frame, sx, sy);
+        }
+        ctx.restore();
+
+        // Crisp floating nameplate
+        ctx.font = "bold 7px monospace";
+        const textW = ctx.measureText(actor.name).width;
+        const tx = Math.round(actor.x + actor.width / 2 - camX - textW / 2);
+        const ty = sy - 4;
+        ctx.fillStyle = "rgba(9, 6, 18, 0.72)";
+        ctx.fillRect(tx - 2, ty - 6, textW + 4, 8);
+        ctx.fillStyle = tagColor;
+        ctx.fillText(actor.name, tx, ty);
+      }
+
+      renderWeatherAndLighting(ctx, camX, camY, nowMs) {
+        // Weather particles
+        for (const p of this.particles) {
+          const px = Math.round(p.x);
+          const py = Math.round(p.y);
+          if (this.weatherMode === "fireflies") {
+            const alpha = 0.45 + 0.5 * Math.sin(p.phase);
+            ctx.fillStyle = `rgba(250, 204, 21, ${alpha.toFixed(2)})`;
+            ctx.fillRect(px, py, p.size, p.size);
+          } else if (this.weatherMode === "petals") {
+            ctx.fillStyle = "#f472b6";
+            ctx.fillRect(px, py, 2, 2);
+          } else {
+            ctx.fillStyle = "rgba(125, 211, 252, 0.55)";
+            ctx.fillRect(px, py, 1, 5);
+          }
+        }
+
+        // Restrained warm additive light halos around lanterns & couple
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        const ax = Math.round(this.ayush.x + 6 - camX);
+        const ay = Math.round(this.ayush.y + 8 - camY);
+        const px = Math.round(this.partner.x + 6 - camX);
+        const py = Math.round(this.partner.y + 8 - camY);
+
+        const drawHalo = (x, y, r, color) => {
+          const g = ctx.createRadialGradient(x, y, 2, x, y, r);
+          g.addColorStop(0, color);
+          g.addColorStop(1, "rgba(0,0,0,0)");
+          ctx.fillStyle = g;
+          ctx.fillRect(x - r, y - r, r * 2, r * 2);
+        };
+
+        drawHalo(ax, ay, 34, "rgba(56, 189, 248, 0.14)");
+        drawHalo(px, py, 34, "rgba(244, 114, 182, 0.14)");
+        if (Math.hypot(ax - px, ay - py) < 36) {
+          drawHalo((ax + px) / 2, (ay + py) / 2, 48, "rgba(251, 191, 36, 0.18)");
+        }
+        ctx.restore();
+      }
+
+      loop(nowMs) {
+        const rawDt = (nowMs - this.lastTime) / 1000;
+        this.lastTime = nowMs;
+        // Clamp delta-time to prevent tunneling after tab-switch or frame drop
+        const dt = Math.min(rawDt, 1 / 20);
+
+        this.update(dt);
+        this.render(nowMs);
+        requestAnimationFrame((t) => this.loop(t));
+      }
+    }
+
+    function bootPixelHearts() {
+      if (!window.__PIXEL_HEARTS_GAME__) {
+        window.__PIXEL_HEARTS_GAME__ = new PixelHeartsMilestone1();
+      }
+    }
+    if (document.readyState === "loading") {
+      window.addEventListener("DOMContentLoaded", bootPixelHearts);
+    } else {
+      bootPixelHearts();
+    }
+  </script>
+</body>
+</html>
