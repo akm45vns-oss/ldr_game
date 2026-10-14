@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_NAME = "pixel-hearts-m1-v2";
+const CACHE_NAME = "pixel-hearts-m2-v1";
 const PRECACHE_URLS = [
   "./",
   "./index.html",

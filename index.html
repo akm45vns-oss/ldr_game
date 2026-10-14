@@ -10,7 +10,7 @@
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png" />
   <link rel="apple-touch-icon" href="./icon-192.png" />
-  <title>Pixel Hearts — Milestone 1 Prototype (Ayush & Partner)</title>
+  <title>Pixel Hearts — Milestone 2: Story, Missions, Inventory & Save</title>
   <!-- Optional PixiJS v7.4.2 CDN with automatic offline Pixel Engine fallback -->
   <script src="https://cdn.jsdelivr.net/npm/pixi.js@7.4.2/dist/pixi.min.js" onerror="window.__PIXI_OFFLINE__ = true"></script>
   <style>
@@ -21,6 +21,7 @@
       --accent-pink: #fb7185;
       --accent-gold: #fbbf24;
       --accent-cyan: #38bdf8;
+      --accent-green: #4ade80;
       --text-main: #f8fafc;
       --text-dim: #cbd5e1;
       --touch-scale: 1;
@@ -32,7 +33,7 @@
       --safe-left: env(safe-area-inset-left, 0px);
       --app-width: 100vw;
       --app-height: 100vh;
-      --hud-bottom-offset: 56px;
+      --hud-bottom-offset: 64px;
     }
 
     * {
@@ -102,7 +103,7 @@
       border: 2px solid rgba(244, 114, 182, 0.55);
       box-shadow: 0 3px 0 rgba(0, 0, 0, 0.65);
       border-radius: 8px;
-      padding: 6px 10px;
+      padding: 5px 10px;
       pointer-events: auto;
       backdrop-filter: blur(4px);
     }
@@ -112,18 +113,18 @@
       flex-direction: column;
       gap: 2px;
       min-width: 0;
-      max-width: calc(100% - 130px);
+      max-width: calc(100% - 140px);
     }
 
     .hud-top-line {
       display: flex;
       align-items: center;
       flex-wrap: wrap;
-      gap: 6px 10px;
+      gap: 4px 10px;
     }
 
     .zone-banner {
-      font-size: clamp(10px, 1.6vw, 12px);
+      font-size: clamp(10px, 1.5vw, 12px);
       color: var(--accent-cyan);
       text-transform: uppercase;
       letter-spacing: 0.6px;
@@ -135,14 +136,14 @@
       display: inline-flex;
       align-items: center;
       gap: 5px;
-      font-size: clamp(11px, 1.7vw, 13px);
+      font-size: clamp(10px, 1.6vw, 12px);
       font-weight: 700;
       white-space: nowrap;
     }
 
     .heart-icon {
       color: var(--accent-pink);
-      font-size: 14px;
+      font-size: 13px;
       animation: pulse 1.4s infinite ease-in-out;
     }
 
@@ -155,14 +156,45 @@
       display: flex;
       align-items: center;
       flex-wrap: wrap;
-      gap: 4px 10px;
-      font-size: clamp(10px, 1.5vw, 12px);
+      gap: 3px 10px;
+      font-size: clamp(10px, 1.4vw, 11px);
       color: var(--text-dim);
     }
 
     .stat-pill {
       color: var(--accent-gold);
       font-weight: 700;
+    }
+
+    /* Active Quest Tracker Strip inside HUD */
+    .quest-tracker-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 1px;
+      padding-top: 2px;
+      border-top: 1px solid rgba(244, 114, 182, 0.25);
+      font-size: clamp(10px, 1.4vw, 11px);
+      color: #fde68a;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .quest-tracker-row:hover {
+      color: #fff;
+    }
+
+    .quest-tag-pill {
+      background: rgba(251, 191, 36, 0.2);
+      border: 1px solid var(--accent-gold);
+      color: var(--accent-gold);
+      border-radius: 4px;
+      padding: 0 4px;
+      font-size: 9px;
+      font-weight: 700;
+      flex-shrink: 0;
     }
 
     /* Right HUD Controls & Collapsible Mobile Drawer */
@@ -177,7 +209,7 @@
 
     .hud-actions {
       display: flex;
-      gap: 6px;
+      gap: 5px;
       flex-wrap: wrap;
       align-items: center;
     }
@@ -191,9 +223,9 @@
       color: var(--text-main);
       border: 2px solid #f472b6;
       border-radius: 6px;
-      padding: 5px 9px;
+      padding: 5px 8px;
       font-family: inherit;
-      font-size: clamp(10px, 1.5vw, 12px);
+      font-size: clamp(10px, 1.4vw, 11px);
       font-weight: 700;
       cursor: pointer;
       box-shadow: 0 3px 0 #090612;
@@ -212,8 +244,19 @@
       color: #e0f2fe;
     }
 
+    .pixel-btn.btn-gold-accent {
+      border-color: var(--accent-gold);
+      color: #fef08a;
+    }
+
+    .pixel-btn.btn-danger {
+      background: #4c1127;
+      border-color: #fb7185;
+      color: #ffe4e6;
+    }
+
     /* Compact Mobile Landscape / Narrow Screen Drawer */
-    @media (max-width: 900px), (max-height: 500px) {
+    @media (max-width: 1024px), (max-height: 500px) {
       .hud-card {
         padding: 4px 8px;
       }
@@ -235,13 +278,15 @@
         right: 0;
         flex-direction: column;
         align-items: stretch;
-        min-width: 176px;
-        background: rgba(15, 11, 30, 0.96);
+        min-width: 192px;
+        max-height: calc(82dvh - 48px);
+        overflow-y: auto;
+        background: rgba(15, 11, 30, 0.97);
         border: 2px solid var(--accent-pink);
         border-radius: 8px;
         padding: 8px;
-        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.8);
-        z-index: 40;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.85);
+        z-index: 45;
       }
 
       #hud-actions-drawer.menu-open {
@@ -256,31 +301,67 @@
       }
     }
 
-    /* Story / Dialogue Toast Banner — Dynamically Positioned Below HUD */
+    /* Brief Non-Blocking Quest / Objective Toast Notification */
+    #quest-toast {
+      position: absolute;
+      top: var(--hud-bottom-offset, 64px);
+      right: calc(10px + var(--safe-right));
+      max-width: min(290px, 75vw);
+      background: rgba(16, 28, 46, 0.95);
+      border: 2px solid var(--accent-green);
+      border-radius: 8px;
+      padding: 6px 10px;
+      z-index: 24;
+      box-shadow: 0 4px 0 rgba(0, 0, 0, 0.7);
+      pointer-events: none;
+      transition: opacity 0.22s ease, transform 0.22s ease, visibility 0.22s ease;
+    }
+
+    #quest-toast.hidden {
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-6px);
+    }
+
+    .toast-title {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--accent-green);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+
+    .toast-body {
+      font-size: 11px;
+      color: var(--text-main);
+      margin-top: 2px;
+      line-height: 1.3;
+    }
+
+    /* Interactive Multi-Step Dialogue Controller Banner */
     #story-banner {
       position: absolute;
-      top: var(--hud-bottom-offset, 56px);
+      top: var(--hud-bottom-offset, 64px);
       left: 50%;
       transform: translateX(-50%);
-      width: min(500px, calc(100% - 24px - var(--safe-left) - var(--safe-right)));
-      max-height: min(130px, 34dvh);
-      overflow-y: auto;
-      overscroll-behavior: contain;
-      background: rgba(15, 11, 30, 0.94);
+      width: min(510px, calc(100% - 24px - var(--safe-left) - var(--safe-right)));
+      max-height: min(145px, 38dvh);
+      display: flex;
+      flex-direction: column;
+      background: rgba(15, 11, 30, 0.96);
       border: 2px solid var(--accent-gold);
       border-radius: 8px;
       padding: 8px 12px;
-      z-index: 22;
-      box-shadow: 0 5px 0 rgba(0, 0, 0, 0.7);
+      z-index: 26;
+      box-shadow: 0 5px 0 rgba(0, 0, 0, 0.75);
       transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
       pointer-events: auto;
-      cursor: pointer;
     }
 
     @media (max-height: 440px) and (orientation: landscape) {
       #story-banner {
-        width: min(420px, calc(100% - 220px - var(--safe-left) - var(--safe-right)));
-        max-height: 28dvh;
+        width: min(430px, calc(100% - 210px - var(--safe-left) - var(--safe-right)));
+        max-height: 34dvh;
         padding: 6px 10px;
       }
     }
@@ -303,6 +384,7 @@
       justify-content: space-between;
       align-items: center;
       gap: 8px;
+      flex-shrink: 0;
     }
 
     .story-text {
@@ -311,6 +393,50 @@
       color: var(--text-main);
       word-wrap: break-word;
       overflow-wrap: break-word;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      flex: 1 1 auto;
+    }
+
+    .dialogue-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 6px;
+      padding-top: 4px;
+      border-top: 1px solid rgba(251, 191, 36, 0.25);
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .dialogue-step-indicator {
+      font-size: 10px;
+      color: var(--text-dim);
+      font-weight: 700;
+    }
+
+    .dialogue-btns {
+      display: flex;
+      gap: 6px;
+    }
+
+    .dialogue-btn {
+      background: #271d47;
+      color: #fff;
+      border: 1.5px solid var(--accent-gold);
+      border-radius: 5px;
+      padding: 3px 9px;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .dialogue-btn.primary {
+      background: #3b2366;
+      border-color: var(--accent-cyan);
+      color: #e0f2fe;
     }
 
     /* Adjustable Landscape Touch Controls */
@@ -405,8 +531,8 @@
       border-color: #a78bfa;
     }
 
-    /* Settings & Controls Customization Modal */
-    #settings-modal {
+    /* Shared Modal Overlay Styling (Settings, Quests, Inventory, Scrapbook, Reset Confirm) */
+    .modal-overlay {
       position: absolute;
       inset: 0;
       background: rgba(8, 5, 18, 0.84);
@@ -414,16 +540,16 @@
       align-items: center;
       justify-content: center;
       z-index: 60;
-      padding: calc(12px + var(--safe-top)) calc(12px + var(--safe-right)) calc(12px + var(--safe-bottom)) calc(12px + var(--safe-left));
+      padding: calc(10px + var(--safe-top)) calc(12px + var(--safe-right)) calc(10px + var(--safe-bottom)) calc(12px + var(--safe-left));
     }
 
-    #settings-modal.hidden {
+    .modal-overlay.hidden {
       display: none;
     }
 
     .modal-box {
-      width: min(460px, 94vw);
-      max-height: min(88dvh, 480px);
+      width: min(480px, 94vw);
+      max-height: min(88dvh, 460px);
       overflow-y: auto;
       overscroll-behavior: contain;
       touch-action: pan-y;
@@ -431,7 +557,7 @@
       background: #16112c;
       border: 3px solid var(--accent-pink);
       border-radius: 10px;
-      padding: 14px 16px;
+      padding: 12px 15px;
       box-shadow: 0 10px 0 #05030a;
     }
 
@@ -444,6 +570,12 @@
       justify-content: space-between;
       align-items: center;
       gap: 8px;
+      position: sticky;
+      top: 0;
+      background: #16112c;
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(244, 114, 182, 0.3);
+      z-index: 2;
     }
 
     .form-row {
@@ -479,6 +611,88 @@
       accent-color: var(--accent-pink);
       width: 100%;
       touch-action: pan-x;
+    }
+
+    /* Cards inside Quests, Inventory & Scrapbook Modals */
+    .item-card {
+      background: rgba(13, 10, 26, 0.85);
+      border: 1.5px solid #4c3b7c;
+      border-radius: 7px;
+      padding: 8px 10px;
+      margin-bottom: 8px;
+      font-size: 12px;
+    }
+
+    .item-card.completed,
+    .item-card.unlocked {
+      border-color: var(--accent-green);
+    }
+
+    .item-card.active-quest {
+      border-color: var(--accent-gold);
+      background: rgba(39, 29, 71, 0.75);
+    }
+
+    .item-card.locked {
+      opacity: 0.62;
+    }
+
+    .item-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 700;
+      margin-bottom: 4px;
+      gap: 6px;
+    }
+
+    .status-badge {
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .status-badge.active {
+      background: rgba(251, 191, 36, 0.2);
+      color: var(--accent-gold);
+      border: 1px solid var(--accent-gold);
+    }
+
+    .status-badge.completed {
+      background: rgba(74, 222, 128, 0.2);
+      color: var(--accent-green);
+      border: 1px solid var(--accent-green);
+    }
+
+    .status-badge.locked {
+      background: rgba(148, 163, 184, 0.15);
+      color: #94a3b8;
+      border: 1px solid #475569;
+    }
+
+    .obj-list {
+      list-style: none;
+      margin-top: 4px;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    .obj-list li {
+      margin-top: 2px;
+    }
+
+    .obj-list li.done {
+      color: var(--accent-green);
+      text-decoration: line-through;
+    }
+
+    .inv-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+      gap: 8px;
+      margin-top: 6px;
     }
 
     /* Portrait Orientation Warning */
@@ -530,28 +744,48 @@
           <span>✦ Memories: <strong class="stat-pill" id="hud-memories">0 / 3</strong></span>
           <span>Bridge: <strong class="stat-pill" id="hud-bridge">BROKEN</strong></span>
         </div>
+        <div class="quest-tracker-row" id="hud-quest-line" title="Tap to view all Missions & Objectives">
+          <span class="quest-tag-pill" id="hud-quest-badge">QUEST 1/6</span>
+          <span id="hud-quest-text">Explore Oakvale: Read the Village Noticeboard (0/1)</span>
+        </div>
       </div>
 
       <div class="hud-right-wrap" id="hud-right-wrap">
         <button class="pixel-btn btn-fullscreen-accent" id="btn-fullscreen" title="Toggle Fullscreen & Landscape Lock">⛶ Fullscreen</button>
         <button class="pixel-btn" id="btn-hud-menu" aria-expanded="false" title="Toggle Quick Actions Menu">☰ Menu</button>
         <div class="hud-card hud-actions" id="hud-actions-drawer">
+          <button class="pixel-btn btn-gold-accent" id="btn-quests" title="View Missions & Objectives (Key: Q)">📜 Quests</button>
+          <button class="pixel-btn btn-gold-accent" id="btn-inventory" title="Open Couple Inventory (Key: I)">🎒 Bag</button>
+          <button class="pixel-btn btn-gold-accent" id="btn-scrapbook" title="Open Memories Scrapbook (Key: M)">📖 Memories</button>
           <button class="pixel-btn" id="btn-weather" title="Cycle Weather">Weather: Fireflies</button>
           <button class="pixel-btn" id="btn-companion" title="Toggle Partner Hold/Follow (Key: C)">Partner: Follow</button>
           <button class="pixel-btn" id="btn-settings" title="Customize Touch Controls & Partner Name (Key: P)">⚙ Controls & Name</button>
-          <button class="pixel-btn" id="btn-reset" title="Reset Prototype Level">↺ Reset</button>
+          <button class="pixel-btn" id="btn-reset" title="Respawn at Oakvale or Reset Progress">↺ Reset</button>
         </div>
       </div>
     </div>
 
-    <!-- Story / Interactive Prompt Banner -->
+    <!-- Brief Visual Notification Toast for Objective / Mission Progress -->
+    <div id="quest-toast" class="hidden" aria-live="polite">
+      <div class="toast-title" id="quest-toast-title">QUEST UPDATED</div>
+      <div class="toast-body" id="quest-toast-body">Objective completed!</div>
+    </div>
+
+    <!-- Multi-Step Interactive Story / Dialogue Banner -->
     <div id="story-banner" role="dialog" aria-live="polite">
       <div class="speaker-tag">
         <span id="story-speaker">STORY PROLOGUE — LANTERN EVE</span>
-        <span style="color:#94a3b8; cursor:pointer;" id="story-close">[E / Tap to Dismiss]</span>
+        <span style="color:#94a3b8; cursor:pointer;" id="story-close">[✕ Close]</span>
       </div>
       <div class="story-text" id="story-text">
         Tonight is the Starlight Festival! Walk through Oakvale Village, cross the Whispering Forest, and work together with your partner to repair the Broken Bridge so you can light the Starlight Shrine together.
+      </div>
+      <div class="dialogue-footer">
+        <span class="dialogue-step-indicator" id="dialogue-step-indicator">Page 1 / 1</span>
+        <div class="dialogue-btns">
+          <button class="dialogue-btn primary" id="btn-dialogue-next">Next ▶ [E]</button>
+          <button class="dialogue-btn" id="btn-dialogue-close">Close ✕</button>
+        </div>
       </div>
     </div>
 
@@ -568,8 +802,41 @@
       </div>
     </div>
 
-    <!-- Settings & Adjustable Touch UI Modal -->
-    <div id="settings-modal" class="hidden">
+    <!-- 1. Missions / Quests Modal -->
+    <div id="quests-modal" class="modal-overlay hidden">
+      <div class="modal-box">
+        <div class="modal-title">
+          <span>📜 COUPLE QUEST LOG (MILESTONE 2)</span>
+          <button class="pixel-btn" id="btn-close-quests">✕ Close</button>
+        </div>
+        <div id="quests-list-container"></div>
+      </div>
+    </div>
+
+    <!-- 2. Inventory Modal -->
+    <div id="inventory-modal" class="modal-overlay hidden">
+      <div class="modal-box">
+        <div class="modal-title">
+          <span>🎒 SHARED COUPLE INVENTORY</span>
+          <button class="pixel-btn" id="btn-close-inventory">✕ Close</button>
+        </div>
+        <div id="inventory-content-container"></div>
+      </div>
+    </div>
+
+    <!-- 3. Scrapbook & Memories Modal -->
+    <div id="scrapbook-modal" class="modal-overlay hidden">
+      <div class="modal-box">
+        <div class="modal-title">
+          <span>📖 STARLIGHT MEMORIES SCRAPBOOK</span>
+          <button class="pixel-btn" id="btn-close-scrapbook">✕ Close</button>
+        </div>
+        <div id="scrapbook-list-container"></div>
+      </div>
+    </div>
+
+    <!-- 4. Settings & Adjustable Touch UI Modal -->
+    <div id="settings-modal" class="modal-overlay hidden">
       <div class="modal-box">
         <div class="modal-title">
           <span>♥ PIXEL HEARTS — CONFIG & TOUCH CONTROLS</span>
@@ -598,8 +865,29 @@
             <option value="swapped">Left-Handed (Actions Left, D-Pad Right)</option>
           </select>
         </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; padding-top:8px; border-top:1px solid rgba(244,114,182,0.25);">
+          <button class="pixel-btn" id="btn-respawn-only">↺ Respawn at Village (Keep Save)</button>
+          <button class="pixel-btn btn-danger" id="btn-open-newgame-confirm">🗑 New Game / Reset Progress</button>
+        </div>
         <div style="font-size:11px; color:#94a3b8; line-height:1.45; margin-top:8px;">
-          <strong>Desktop Keys:</strong> A/D or Left/Right = Move | W/Space/Up = Jump | E/Enter = Interact | C = Command Partner (Follow / Hold Plate) | P = Settings
+          <strong>Desktop Keys:</strong> A/D or Left/Right = Move | W/Space/Up = Jump | E/Enter = Interact / Next Dialogue | C = Partner Stay/Follow | Q = Quests | I = Bag | M = Memories | P = Settings
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. Reset / New Game Confirmation Modal -->
+    <div id="reset-confirm-modal" class="modal-overlay hidden">
+      <div class="modal-box" style="max-width:400px;">
+        <div class="modal-title">
+          <span>↺ RESET OR START NEW GAME?</span>
+          <button class="pixel-btn" id="btn-cancel-reset">✕ Cancel</button>
+        </div>
+        <p style="font-size:12px; color:var(--text-main); line-height:1.5; margin-bottom:12px;">
+          Choose whether to simply respawn Ayush &amp; your partner at Oakvale Village (keeping all quests, crystals, and memories), or wipe your saved story progress to start a brand-new game. Your touch control preferences and partner display name will be preserved.
+        </p>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end;">
+          <button class="pixel-btn" id="btn-confirm-respawn">↺ Respawn Only (Keep Progress)</button>
+          <button class="pixel-btn btn-danger" id="btn-confirm-reset">🗑 Confirm New Game (Wipe Save)</button>
         </div>
       </div>
     </div>
@@ -622,11 +910,11 @@
     "use strict";
 
     // ============================================================================
-    // 1. CONSTANTS & CONFIGURATION (Milestone 1 Core Architecture)
+    // 1. CONSTANTS & SAFE STORAGE HELPERS
     // ============================================================================
     function safeStorageGet(key, fallback = null) {
       try {
-        const val = window.safeStorageGet(key);
+        const val = window.localStorage.getItem(key);
         return val !== null ? val : fallback;
       } catch (_) {
         return fallback;
@@ -635,9 +923,18 @@
 
     function safeStorageSet(key, value) {
       try {
-        window.safeStorageSet(key, value);
+        window.localStorage.setItem(key, value);
       } catch (_) {}
     }
+
+    function safeStorageRemove(key) {
+      try {
+        window.localStorage.removeItem(key);
+      } catch (_) {}
+    }
+
+    const SAVE_STORAGE_KEY = "ph_save_v2";
+    const SAVE_SCHEMA_VERSION = 2;
 
     const VIEW_WIDTH = 480;   // Internal crisp pixel-art resolution (16:9)
     const VIEW_HEIGHT = 270;
@@ -661,7 +958,7 @@
     };
 
     // ============================================================================
-    // 2. PROCEDURAL PIXEL-ART SPRITE & TILESET GENERATOR (No Placeholder Rectangles)
+    // 2. PROCEDURAL PIXEL-ART SPRITE & TILESET GENERATOR
     // ============================================================================
     class PixelArtFactory {
       static createCanvas(w, h) {
@@ -685,40 +982,39 @@
       }
 
       static generateCharacterFrames(isPartner = false) {
-        // 4 animation states: idle0, idle1, run0, run1, jump
         const frames = [];
         const palette = isPartner
           ? {
-              H: "#2e1a36", // deep plum hair
-              h: "#4c2a59", // hair highlight
-              R: "#fb7185", // rose hair ribbon
-              S: "#ffedd5", // warm skin
-              s: "#fdba74", // skin shadow
-              E: "#1e1b4b", // eyes
-              C: "#e11d48", // crimson adventure tunic
-              c: "#9f1239", // tunic shadow
-              G: "#fde047", // gold trim/belt
-              P: "#312e81", // leggings
-              B: "#451a03", // boots
+              H: "#2e1a36",
+              h: "#4c2a59",
+              R: "#fb7185",
+              S: "#ffedd5",
+              s: "#fdba74",
+              E: "#1e1b4b",
+              C: "#e11d48",
+              c: "#9f1239",
+              G: "#fde047",
+              P: "#312e81",
+              B: "#451a03",
             }
           : {
-              H: "#1e1b4b", // dark midnight hair
-              h: "#312e81", // hair shine
-              R: "#38bdf8", // cyan headband/scarf
-              S: "#ffedd5", // warm skin
-              s: "#fdba74", // skin shadow
-              E: "#0f172a", // eyes
-              C: "#2563eb", // cobalt adventure jacket
-              c: "#1d4ed8", // jacket shadow
-              G: "#fbbf24", // gold buckle
-              P: "#1e293b", // trousers
-              B: "#78350f", // leather boots
+              H: "#1e1b4b",
+              h: "#312e81",
+              R: "#38bdf8",
+              S: "#ffedd5",
+              s: "#fdba74",
+              E: "#0f172a",
+              C: "#2563eb",
+              c: "#1d4ed8",
+              G: "#fbbf24",
+              P: "#1e293b",
+              B: "#78350f",
             };
 
         const baseHead = [
           "....HHHHHH......",
           "...HHHHHHHH.....",
-          "..HHHHHHHHHH....".replace("", "h"),
+          "..hHHHHHHHHH....",
           "..HHHSSSSSHH....",
           "..HHSSSSSSSH....",
           "..RRSSSSESESH...",
@@ -727,7 +1023,6 @@
         ];
 
         const poses = [
-          // 0: Idle frame 0
           [
             ...baseHead,
             "....RRRRRRR.....",
@@ -741,7 +1036,6 @@
             "....BBB..BBB....",
             "....BBB..BBB....",
           ],
-          // 1: Idle frame 1 (subtle breathe)
           [
             "................",
             ...baseHead,
@@ -755,7 +1049,6 @@
             "....BBB..BBB....",
             "....BBB..BBB....",
           ],
-          // 2: Run stride A
           [
             ...baseHead,
             "...RRRRRRRR.....",
@@ -769,7 +1062,6 @@
             "................",
             "................",
           ],
-          // 3: Run stride B
           [
             ...baseHead,
             "....RRRRRRR.....",
@@ -783,7 +1075,6 @@
             "................",
             "................",
           ],
-          // 4: Jump / Air
           [
             ...baseHead,
             "..RRRRRRRRRR....",
@@ -808,34 +1099,66 @@
         return frames;
       }
 
+      static generateMiraSprite() {
+        const canvas = this.createCanvas(16, 18);
+        const ctx = canvas.getContext("2d");
+        const palette = {
+          H: "#f8fafc",
+          R: "#fbbf24",
+          S: "#ffedd5",
+          E: "#1e1b4b",
+          C: "#7e22ce",
+          c: "#581c87",
+          G: "#fde047",
+          B: "#451a03",
+        };
+        const pose = [
+          "....RRRRRR......",
+          "...RRRRRRRR.....",
+          "..HHHHHHHHHH....",
+          "..HHHSSSSSHH....",
+          "..HHSSSSSSSH....",
+          "..HHSSSSESESH...",
+          "...SSSSSSSSS....",
+          "....RRRRRRR.....",
+          "...CCCCCCCCC....",
+          "..cCCCCCCCCCC...",
+          "..cCCGGGGGGCC...",
+          "..SScCCCCCCcGG..",
+          "...CCCCCCCCCC...",
+          "...cCCCCCCCCc...",
+          "....CCCCCCCC....",
+          "....BBB..BBB....",
+          "....BBB..BBB....",
+          "................",
+        ];
+        this.drawPattern(ctx, 0, 0, pose, palette);
+        return canvas;
+      }
+
       static generateTiles() {
         const tiles = {};
 
-        // Grass top turf tile (16x16)
         tiles.grass = this.createCanvas(16, 16);
         {
           const ctx = tiles.grass.getContext("2d");
           ctx.fillStyle = "#4d2c19";
           ctx.fillRect(0, 0, 16, 16);
-          // Soil texture speckles
           ctx.fillStyle = "#3a1f10";
           for (let i = 0; i < 16; i += 4) {
             ctx.fillRect(i, 6 + (i % 3) * 2, 2, 2);
             ctx.fillRect((i + 2) % 16, 11, 2, 2);
           }
-          // Lush emerald grass top
           ctx.fillStyle = "#16a34a";
           ctx.fillRect(0, 0, 16, 4);
           ctx.fillStyle = "#4ade80";
           ctx.fillRect(0, 0, 16, 2);
-          // Overhanging blades
           for (let x = 0; x < 16; x += 3) {
             ctx.fillStyle = "#15803d";
             ctx.fillRect(x, 4, 2, (x % 2) + 2);
           }
         }
 
-        // Deep earth tile (16x16)
         tiles.dirt = this.createCanvas(16, 16);
         {
           const ctx = tiles.dirt.getContext("2d");
@@ -850,7 +1173,6 @@
           ctx.fillRect(2, 10, 2, 2);
         }
 
-        // Village cobblestone path tile (16x16)
         tiles.cobble = this.createCanvas(16, 16);
         {
           const ctx = tiles.cobble.getContext("2d");
@@ -869,7 +1191,6 @@
           ctx.fillRect(0, 11, 16, 5);
         }
 
-        // Wooden bridge / one-way platform plank (16x16)
         tiles.bridge = this.createCanvas(16, 16);
         {
           const ctx = tiles.bridge.getContext("2d");
@@ -883,7 +1204,6 @@
           ctx.fillRect(13, 2, 1, 1);
         }
 
-        // Magical glowing bridge plank (extended when puzzle solved/held)
         tiles.magicBridge = this.createCanvas(16, 16);
         {
           const ctx = tiles.magicBridge.getContext("2d");
@@ -895,7 +1215,6 @@
           ctx.fillRect(0, 4, 16, 2);
         }
 
-        // Stone block / mossy ruin (16x16)
         tiles.stone = this.createCanvas(16, 16);
         {
           const ctx = tiles.stone.getContext("2d");
@@ -919,7 +1238,6 @@
     // ============================================================================
     class LevelWorld {
       constructor() {
-        // 0 = empty, 1 = grass, 2 = dirt, 3 = cobble, 4 = stone, 5 = one-way wood platform, 6 = magic bridge (conditional)
         this.grid = Array.from({ length: LEVEL_ROWS }, () => new Uint8Array(LEVEL_COLS));
         this.bridgeUnlockedPermanently = false;
         this.platePressed = false;
@@ -928,18 +1246,15 @@
       }
 
       buildLevel() {
-        // Base ground rows (row 15..17) with a chasm at cols 150..165 (Broken Bridge)
         for (let c = 0; c < LEVEL_COLS; c++) {
           const isChasm = c >= 150 && c <= 165;
           if (!isChasm) {
-            // Village uses cobble top (cols 0..66), Forest & Shrine use grass top
             this.grid[15][c] = c < 66 ? 3 : 1;
             this.grid[16][c] = 2;
             this.grid[17][c] = 2;
           }
         }
 
-        // Invisible left/right border walls
         for (let r = 0; r < LEVEL_ROWS; r++) {
           this.grid[r][0] = 4;
           this.grid[r][LEVEL_COLS - 1] = 4;
@@ -960,12 +1275,10 @@
         this.addSolidBlock(130, 13, 5, 2, 4);
 
         // Zone 3: Broken Bridge Chasm (cols 150..165)
-        // Stone abutments on either bank
         this.addSolidBlock(148, 14, 2, 1, 4);
         this.addSolidBlock(166, 14, 2, 1, 4);
-        // Magic bridge span across cols 150..165 at row 14
         for (let c = 150; c <= 165; c++) {
-          this.grid[14][c] = 6; // Type 6 = active only when platePressed or bridgeUnlockedPermanently
+          this.grid[14][c] = 6;
         }
 
         // High sanctuary ledges near Starlight Shrine (cols 172..195)
@@ -976,18 +1289,45 @@
         this.collectibles = [
           { id: "c1", type: "crystal", x: 20 * 16, y: 10.5 * 16, collected: false },
           { id: "c2", type: "crystal", x: 39 * 16, y: 9.5 * 16, collected: false },
-          { id: "m1", type: "memory", x: 54 * 16, y: 10.5 * 16, collected: false, title: "Memory #1: First Coffee in Oakvale", text: "Ayush still remembers how nervous he was waiting by the village lantern post—until she smiled and made the whole evening glow." },
+          {
+            id: "m1",
+            type: "memory",
+            memoryId: "mem_1",
+            x: 54 * 16,
+            y: 10.5 * 16,
+            collected: false,
+            title: "Memory #1: First Coffee in Oakvale",
+            text: "Ayush still remembers how nervous he was waiting by the village lantern post—until she smiled and made the whole evening glow."
+          },
           { id: "c3", type: "crystal", x: 78 * 16, y: 11.5 * 16, collected: false },
           { id: "c4", type: "crystal", x: 86 * 16, y: 9.5 * 16, collected: false },
-          { id: "m2", type: "memory", x: 95 * 16, y: 7.5 * 16, collected: false, title: "Memory #2: Secret Under the Canopy", text: "Even when the forest trails grew steep, we never rushed ahead alone. Every climb feels lighter side by side." },
+          {
+            id: "m2",
+            type: "memory",
+            memoryId: "mem_2",
+            x: 95 * 16,
+            y: 7.5 * 16,
+            collected: false,
+            title: "Memory #2: Secret Under the Canopy",
+            text: "Even when the forest trails grew steep, we never rushed ahead alone. Every climb feels lighter side by side."
+          },
           { id: "c5", type: "crystal", x: 113 * 16, y: 8.5 * 16, collected: false },
           { id: "c6", type: "crystal", x: 123 * 16, y: 6.5 * 16, collected: false },
           { id: "c7", type: "crystal", x: 157 * 16, y: 12.2 * 16, collected: false },
-          { id: "m3", type: "memory", x: 185 * 16, y: 8.5 * 16, collected: false, title: "Memory #3: Promise at the Bridge", text: "No distance or chasm keeps us apart for long—one holds the anchor while the other builds the way across." },
+          {
+            id: "m3",
+            type: "memory",
+            memoryId: "mem_3",
+            x: 185 * 16,
+            y: 8.5 * 16,
+            collected: false,
+            title: "Memory #3: Promise at the Bridge",
+            text: "No distance or chasm keeps us apart for long—one holds the anchor while the other builds the way across."
+          },
           { id: "c8", type: "crystal", x: 175 * 16, y: 10.5 * 16, collected: false },
         ];
 
-        // Interactive Objects (Signs, Pressure Plate, Bridge Winch, Starlight Shrine)
+        // Interactive Objects (Signs, Lantern Keeper Mira, Pressure Plate, Bridge Winch, Starlight Shrine)
         this.interactables = [
           {
             id: "village_sign",
@@ -995,7 +1335,7 @@
             y: 13 * 16,
             radius: 28,
             speaker: "OAKVALE NOTICEBOARD",
-            text: "Welcome to Oakvale! Head East into the Whispering Forest. Tip: Press [B / ACT] near signs or shrines, and press [C / STAY-GO] to ask your partner to hold a pressure plate!",
+            text: "Welcome to Oakvale! Head East into the Whispering Forest."
           },
           {
             id: "elder_cottage",
@@ -1003,7 +1343,7 @@
             y: 13 * 16,
             radius: 30,
             speaker: "LANTERN KEEPER MIRA",
-            text: "The old ravine bridge ahead collapsed in last night's storm! One of you must stand on the West Stone Plate while the other crosses the Starlight Span to crank the East Winch.",
+            text: "The old ravine bridge ahead collapsed in last night's storm!"
           },
           {
             id: "west_plate",
@@ -1011,7 +1351,7 @@
             y: 14.5 * 16,
             radius: 24,
             speaker: "ANCIENT STONE PRESSURE PLATE",
-            text: "Position your partner here and press [C] (or tap ♥ STAY/GO) so they hold the plate down while Ayush crosses the bridge!",
+            text: "Position your partner here and press [C] (or tap ♥ STAY/GO) so they hold the plate down while Ayush crosses the bridge!"
           },
           {
             id: "east_winch",
@@ -1019,7 +1359,7 @@
             y: 13.5 * 16,
             radius: 28,
             speaker: "EAST BANK BRIDGE WINCH",
-            text: "Press [B / ACT] to lock the suspension cables permanently so your partner can rejoin you!",
+            text: "Press [B / ACT] to lock the suspension cables permanently so your partner can rejoin you!"
           },
           {
             id: "starlight_shrine",
@@ -1027,7 +1367,7 @@
             y: 13 * 16,
             radius: 34,
             speaker: "STARLIGHT COUPLE SHRINE",
-            text: "Bring both Ayush and your partner together at the Shrine and press [B / ACT] to ignite the Starlight Beacon!",
+            text: "Bring both Ayush and your partner together at the Shrine and press [B / ACT] to ignite the Starlight Beacon!"
           },
         ];
       }
@@ -1066,7 +1406,530 @@
     }
 
     // ============================================================================
-    // 4. UNIFIED INPUT MANAGER (Desktop Keyboard + Multi-Touch Mobile Controls)
+    // 4. MILESTONE 2: REUSABLE DIALOGUE CONTROLLER
+    // ============================================================================
+    class DialogueController {
+      constructor(app) {
+        this.app = app;
+        this.isOpen = false;
+        this.speaker = "";
+        this.pages = [];
+        this.pageIndex = 0;
+        this.onComplete = null;
+        this.completedCallbackFired = false;
+
+        this.bannerEl = document.getElementById("story-banner");
+        this.speakerEl = document.getElementById("story-speaker");
+        this.textEl = document.getElementById("story-text");
+        this.stepEl = document.getElementById("dialogue-step-indicator");
+        this.nextBtn = document.getElementById("btn-dialogue-next");
+        this.closeBtn = document.getElementById("btn-dialogue-close");
+        this.topCloseBtn = document.getElementById("story-close");
+
+        this.bindEvents();
+      }
+
+      bindEvents() {
+        this.nextBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          this.advance();
+        });
+        this.closeBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          this.close(true);
+        });
+        this.topCloseBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          this.close(true);
+        });
+        this.bannerEl.addEventListener("click", (e) => {
+          if (e.target === this.nextBtn || e.target === this.closeBtn || e.target === this.topCloseBtn) return;
+          this.advance();
+        });
+      }
+
+      open(speaker, pagesInput, onComplete = null) {
+        const pages = Array.isArray(pagesInput) ? pagesInput.filter(Boolean) : [String(pagesInput || "")];
+        if (pages.length === 0) return;
+
+        this.speaker = speaker;
+        this.pages = pages;
+        this.pageIndex = 0;
+        this.onComplete = typeof onComplete === "function" ? onComplete : null;
+        this.completedCallbackFired = false;
+        this.isOpen = true;
+
+        this.app.input.clearAllInputs();
+        this.app.updateViewportLayout();
+        this.renderPage();
+        this.bannerEl.classList.remove("hidden");
+      }
+
+      renderPage() {
+        this.speakerEl.textContent = this.speaker;
+        this.textEl.textContent = this.pages[this.pageIndex] || "";
+        this.stepEl.textContent = `Page ${this.pageIndex + 1} / ${this.pages.length}`;
+        const hasMore = this.pageIndex < this.pages.length - 1;
+        this.nextBtn.textContent = hasMore ? "Next ▶ [E]" : "Continue ✓ [E]";
+      }
+
+      advance() {
+        if (!this.isOpen) return;
+        if (this.pageIndex < this.pages.length - 1) {
+          this.pageIndex++;
+          this.renderPage();
+        } else {
+          this.close(true);
+        }
+      }
+
+      close(runCompletion = true) {
+        if (!this.isOpen) {
+          this.bannerEl.classList.add("hidden");
+          return;
+        }
+        this.isOpen = false;
+        this.bannerEl.classList.add("hidden");
+        if (runCompletion && this.onComplete && !this.completedCallbackFired) {
+          this.completedCallbackFired = true;
+          const cb = this.onComplete;
+          this.onComplete = null;
+          cb();
+        }
+      }
+    }
+
+    // ============================================================================
+    // 5. MILESTONE 2: SCRAPBOOK, INVENTORY & MISSION MANAGER
+    // ============================================================================
+    const QUEST_ITEM_CATALOG = {
+      oakvale_map: {
+        id: "oakvale_map",
+        name: "Oakvale Trail Note",
+        icon: "🗺",
+        desc: "A sketched map from the village noticeboard marking the Whispering Forest and Ravine."
+      },
+      winch_key: {
+        id: "winch_key",
+        name: "Starlight Winch Key",
+        icon: "🗝",
+        desc: "Entrusted by Lantern Keeper Mira to lock the East Bank suspension bridge gears."
+      },
+      lantern_charm: {
+        id: "lantern_charm",
+        name: "Festival Lantern Charm",
+        icon: "🏮",
+        desc: "A warm twin-flame charm given by Mira that resonates with the Starlight Couple Shrine."
+      },
+      starlight_emblem: {
+        id: "starlight_emblem",
+        name: "Starlight Couple Emblem",
+        icon: "🌟",
+        desc: "Awarded for igniting the Starlight Shrine together at the summit."
+      }
+    };
+
+    class MissionManager {
+      constructor(app) {
+        this.app = app;
+        this.missions = this.createDefaultMissions();
+      }
+
+      createDefaultMissions() {
+        return [
+          {
+            id: "m1_explore_oakvale",
+            order: 1,
+            title: "Mission 1: Explore Oakvale",
+            description: "Begin your Starlight Festival evening in Oakvale Village and read the village noticeboard together.",
+            status: "active", // "locked" | "active" | "completed"
+            notifiedComplete: false,
+            objectives: [
+              {
+                id: "read_village_sign",
+                text: "Read the Oakvale Noticeboard",
+                current: 0,
+                target: 1,
+                completed: false
+              }
+            ]
+          },
+          {
+            id: "m2_gather_crystals",
+            order: 2,
+            title: "Mission 2: Gather Heart Crystals",
+            description: "Collect all 8 glowing Heart Crystals scattered across the rooftops, forest canopy, and ravine.",
+            status: "locked",
+            notifiedComplete: false,
+            objectives: [
+              {
+                id: "collect_8_crystals",
+                text: "Collect Heart Crystals",
+                current: 0,
+                target: 8,
+                completed: false
+              }
+            ]
+          },
+          {
+            id: "m3_recover_memories",
+            order: 3,
+            title: "Mission 3: Recover Our Memories",
+            description: "Discover the 3 golden Memory Shards hidden along your journey to unlock Scrapbook entries.",
+            status: "locked",
+            notifiedComplete: false,
+            objectives: [
+              {
+                id: "collect_3_memories",
+                text: "Discover Memory Shards",
+                current: 0,
+                target: 3,
+                completed: false
+              }
+            ]
+          },
+          {
+            id: "m4_find_lantern_keeper",
+            order: 4,
+            title: "Mission 4: Find the Lantern Keeper",
+            description: "Speak with Lantern Keeper Mira outside her cottage in eastern Oakvale for guidance on crossing the ravine.",
+            status: "locked",
+            notifiedComplete: false,
+            objectives: [
+              {
+                id: "talk_to_mira",
+                text: "Speak with Lantern Keeper Mira",
+                current: 0,
+                target: 1,
+                completed: false
+              }
+            ]
+          },
+          {
+            id: "m5_repair_bridge",
+            order: 5,
+            title: "Mission 5: Repair the Broken Bridge",
+            description: "Work together at the chasm: hold the West Stone Plate to materialize the Starlight Span, then lock the East Bank Winch.",
+            status: "locked",
+            notifiedComplete: false,
+            objectives: [
+              {
+                id: "hold_west_plate",
+                text: "Activate the West Stone Pressure Plate",
+                current: 0,
+                target: 1,
+                completed: false
+              },
+              {
+                id: "lock_east_winch",
+                text: "Lock the East Bank Winch with Mira's Key",
+                current: 0,
+                target: 1,
+                completed: false
+              }
+            ]
+          },
+          {
+            id: "m6_light_shrine",
+            order: 6,
+            title: "Mission 6: Light the Starlight Shrine",
+            description: "Reunite on the eastern sanctuary cliff and ignite the Starlight Couple Shrine together.",
+            status: "locked",
+            notifiedComplete: false,
+            objectives: [
+              {
+                id: "ignite_shrine_together",
+                text: "Stand together at the Starlight Shrine and activate it",
+                current: 0,
+                target: 1,
+                completed: false
+              }
+            ]
+          }
+        ];
+      }
+
+      getMission(id) {
+        return this.missions.find((m) => m.id === id) || null;
+      }
+
+      unlockMission(id, silent = false) {
+        const m = this.getMission(id);
+        if (m && m.status === "locked") {
+          m.status = "active";
+          if (!silent) {
+            this.app.showQuestToast("NEW QUEST UNLOCKED", m.title);
+          }
+        }
+      }
+
+      setObjectiveProgress(missionId, objectiveId, newValue, silent = false) {
+        const m = this.getMission(missionId);
+        if (!m) return false;
+        const obj = m.objectives.find((o) => o.id === objectiveId);
+        if (!obj) return false;
+
+        const clamped = Math.max(0, Math.min(obj.target, newValue));
+        const prev = obj.current;
+        const wasCompleted = obj.completed;
+        obj.current = Math.max(prev, clamped);
+        obj.completed = obj.current >= obj.target;
+
+        const advanced = obj.current > prev && m.status !== "locked";
+
+        // Check if all objectives in the mission are now complete
+        const allDone = m.objectives.every((o) => o.completed);
+        if (allDone && m.status !== "completed") {
+          m.status = "completed";
+          if (!m.notifiedComplete) {
+            m.notifiedComplete = true;
+            if (!silent) {
+              this.app.showQuestToast("QUEST COMPLETED ♥", m.title);
+            }
+          }
+          this.onMissionCompleted(m.id, silent);
+        } else if (advanced && !wasCompleted && !silent) {
+          this.app.showQuestToast(
+            "OBJECTIVE UPDATED",
+            `${obj.text} (${obj.current}/${obj.target})`
+          );
+        }
+
+        this.app.updateQuestHUD();
+        return advanced;
+      }
+
+      onMissionCompleted(missionId, silent = false) {
+        if (missionId === "m1_explore_oakvale") {
+          this.unlockMission("m2_gather_crystals", silent);
+          this.unlockMission("m3_recover_memories", silent);
+          this.unlockMission("m4_find_lantern_keeper", silent);
+          // Sync any already-collected crystals or memories into the newly unlocked missions
+          this.syncCollectibleCounts(silent);
+        } else if (missionId === "m4_find_lantern_keeper") {
+          this.unlockMission("m5_repair_bridge", silent);
+          if (this.app.storyFlags.plateActivatedOnce) {
+            this.setObjectiveProgress("m5_repair_bridge", "hold_west_plate", 1, true);
+          }
+          if (this.app.world.bridgeUnlockedPermanently) {
+            this.setObjectiveProgress("m5_repair_bridge", "lock_east_winch", 1, silent);
+          }
+        } else if (missionId === "m5_repair_bridge") {
+          this.unlockMission("m6_light_shrine", silent);
+          if (this.app.world.shrineLit) {
+            this.setObjectiveProgress("m6_light_shrine", "ignite_shrine_together", 1, silent);
+          }
+        }
+      }
+
+      syncCollectibleCounts(silent = false) {
+        const crystalsCount = this.app.world.collectibles.filter((c) => c.type === "crystal" && c.collected).length;
+        const memoriesCount = this.app.world.collectibles.filter((c) => c.type === "memory" && c.collected).length;
+
+        const m2 = this.getMission("m2_gather_crystals");
+        if (m2) {
+          m2.objectives[0].current = crystalsCount;
+          if (m2.status !== "locked") {
+            this.setObjectiveProgress("m2_gather_crystals", "collect_8_crystals", crystalsCount, silent);
+          }
+        }
+
+        const m3 = this.getMission("m3_recover_memories");
+        if (m3) {
+          m3.objectives[0].current = memoriesCount;
+          if (m3.status !== "locked") {
+            this.setObjectiveProgress("m3_recover_memories", "collect_3_memories", memoriesCount, silent);
+          }
+        }
+      }
+
+      getPrimaryTrackedMission() {
+        // Prioritize the story spine (M1 -> M4 -> M5 -> M6), then M2 / M3
+        const priorityOrder = [
+          "m1_explore_oakvale",
+          "m4_find_lantern_keeper",
+          "m5_repair_bridge",
+          "m6_light_shrine",
+          "m2_gather_crystals",
+          "m3_recover_memories"
+        ];
+        for (const id of priorityOrder) {
+          const m = this.getMission(id);
+          if (m && m.status === "active") return m;
+        }
+        return this.missions.find((m) => m.status === "active") || null;
+      }
+
+      serialize() {
+        return this.missions.map((m) => ({
+          id: m.id,
+          status: m.status,
+          notifiedComplete: Boolean(m.notifiedComplete),
+          objectives: m.objectives.map((o) => ({
+            id: o.id,
+            current: Number(o.current) || 0,
+            completed: Boolean(o.completed)
+          }))
+        }));
+      }
+
+      restore(savedMissions) {
+        if (!Array.isArray(savedMissions)) return;
+        for (const sm of savedMissions) {
+          if (!sm || typeof sm.id !== "string") continue;
+          const m = this.getMission(sm.id);
+          if (!m) continue;
+          if (["locked", "active", "completed"].includes(sm.status)) {
+            m.status = sm.status;
+          }
+          m.notifiedComplete = Boolean(sm.notifiedComplete);
+          if (Array.isArray(sm.objectives)) {
+            for (const so of sm.objectives) {
+              const obj = m.objectives.find((o) => o.id === so.id);
+              if (obj && typeof so.current === "number" && !Number.isNaN(so.current)) {
+                obj.current = Math.max(0, Math.min(obj.target, Math.floor(so.current)));
+                obj.completed = Boolean(so.completed) || obj.current >= obj.target;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // ============================================================================
+    // 6. MILESTONE 2: VERSIONED SAVE & LOAD SYSTEM
+    // ============================================================================
+    class SaveManager {
+      static saveGame(app) {
+        const payload = {
+          version: SAVE_SCHEMA_VERSION,
+          updatedAt: Date.now(),
+          partnerName: app.partnerName,
+          weatherMode: app.weatherMode,
+          companionHoldMode: Boolean(app.companionHoldMode),
+          playerPos: { x: Math.round(app.ayush.x), y: Math.round(app.ayush.y) },
+          partnerPos: { x: Math.round(app.partner.x), y: Math.round(app.partner.y) },
+          collectedIds: app.world.collectibles.filter((c) => c.collected).map((c) => c.id),
+          questItems: Array.from(app.questItems),
+          unlockedMemories: Array.from(app.unlockedMemories),
+          storyFlags: { ...app.storyFlags },
+          worldState: {
+            bridgeUnlockedPermanently: Boolean(app.world.bridgeUnlockedPermanently),
+            shrineLit: Boolean(app.world.shrineLit)
+          },
+          missions: app.missionManager.serialize()
+        };
+        safeStorageSet(SAVE_STORAGE_KEY, JSON.stringify(payload));
+        return true;
+      }
+
+      static loadGame(app) {
+        const raw = safeStorageGet(SAVE_STORAGE_KEY, null);
+        if (!raw) return { loaded: false, reason: "no_save" };
+
+        let parsed = null;
+        try {
+          parsed = JSON.parse(raw);
+        } catch (_) {
+          return { loaded: false, reason: "corrupted_json" };
+        }
+
+        if (!parsed || typeof parsed !== "object" || parsed.version !== SAVE_SCHEMA_VERSION) {
+          return { loaded: false, reason: "invalid_schema" };
+        }
+
+        // 1. Partner Name & Weather
+        if (typeof parsed.partnerName === "string" && parsed.partnerName.trim().length > 0) {
+          app.partnerName = parsed.partnerName.trim().slice(0, 16);
+          app.partner.name = app.partnerName;
+          safeStorageSet("ph_partner_name", app.partnerName);
+        }
+        if (["fireflies", "petals", "rain"].includes(parsed.weatherMode)) {
+          app.weatherMode = parsed.weatherMode;
+        }
+
+        // 2. Collectibles (deduplicated via Set)
+        if (Array.isArray(parsed.collectedIds)) {
+          const validSet = new Set(parsed.collectedIds.filter((id) => typeof id === "string"));
+          for (const item of app.world.collectibles) {
+            item.collected = validSet.has(item.id);
+          }
+        }
+
+        // 3. Quest Items & Unlocked Scrapbook Memories
+        if (Array.isArray(parsed.questItems)) {
+          app.questItems = new Set(
+            parsed.questItems.filter((id) => typeof id === "string" && QUEST_ITEM_CATALOG[id])
+          );
+        }
+        if (Array.isArray(parsed.unlockedMemories)) {
+          app.unlockedMemories = new Set(
+            parsed.unlockedMemories.filter((id) => typeof id === "string")
+          );
+        }
+        // Ensure any collected memory shard also has its scrapbook entry unlocked
+        for (const item of app.world.collectibles) {
+          if (item.type === "memory" && item.collected && item.memoryId) {
+            app.unlockedMemories.add(item.memoryId);
+          }
+        }
+
+        // 4. Story Flags & World State
+        if (parsed.storyFlags && typeof parsed.storyFlags === "object") {
+          for (const key of Object.keys(app.storyFlags)) {
+            if (typeof parsed.storyFlags[key] === "boolean") {
+              app.storyFlags[key] = parsed.storyFlags[key];
+            }
+          }
+        }
+        if (parsed.worldState && typeof parsed.worldState === "object") {
+          app.world.bridgeUnlockedPermanently = Boolean(parsed.worldState.bridgeUnlockedPermanently);
+          app.world.shrineLit = Boolean(parsed.worldState.shrineLit);
+        }
+
+        // 5. Restore Missions
+        if (Array.isArray(parsed.missions)) {
+          app.missionManager.restore(parsed.missions);
+        }
+        app.missionManager.syncCollectibleCounts(true);
+
+        // 6. Restore Positions safely within world bounds
+        if (
+          parsed.playerPos &&
+          typeof parsed.playerPos.x === "number" &&
+          typeof parsed.playerPos.y === "number" &&
+          parsed.playerPos.x >= 16 &&
+          parsed.playerPos.x <= WORLD_WIDTH - 32 &&
+          parsed.playerPos.y >= 0 &&
+          parsed.playerPos.y <= WORLD_HEIGHT
+        ) {
+          app.ayush.x = parsed.playerPos.x;
+          app.ayush.y = parsed.playerPos.y;
+        }
+        if (
+          parsed.partnerPos &&
+          typeof parsed.partnerPos.x === "number" &&
+          typeof parsed.partnerPos.y === "number" &&
+          parsed.partnerPos.x >= 16 &&
+          parsed.partnerPos.x <= WORLD_WIDTH - 32 &&
+          parsed.partnerPos.y >= 0 &&
+          parsed.partnerPos.y <= WORLD_HEIGHT
+        ) {
+          app.partner.x = parsed.partnerPos.x;
+          app.partner.y = parsed.partnerPos.y;
+        }
+        app.companionHoldMode = Boolean(parsed.companionHoldMode);
+
+        return { loaded: true, reason: "ok" };
+      }
+
+      static clearSave() {
+        safeStorageRemove(SAVE_STORAGE_KEY);
+      }
+    }
+
+    // ============================================================================
+    // 7. UNIFIED INPUT MANAGER (Desktop Keyboard + Multi-Touch Mobile Controls)
     // ============================================================================
     class InputManager {
       constructor() {
@@ -1135,7 +1998,6 @@
             if (e && e.pointerId !== undefined) {
               this.activePointers.delete(e.pointerId);
             }
-            // Check if another active pointer is still holding the same action
             let stillHeld = false;
             for (const entry of this.activePointers.values()) {
               if (entry.action === action) {
@@ -1212,9 +2074,9 @@
         return false;
       }
 
-      consumeSettingsToggle() {
-        if (this.justPressed.has("KeyP")) {
-          this.justPressed.delete("KeyP");
+      consumeKey(code) {
+        if (this.justPressed.has(code)) {
+          this.justPressed.delete(code);
           return true;
         }
         return false;
@@ -1226,7 +2088,7 @@
     }
 
     // ============================================================================
-    // 5. ACTOR ENTITY & DETERMINISTIC AABB / ONE-WAY PLATFORM PHYSICS
+    // 8. ACTOR ENTITY & DETERMINISTIC AABB / ONE-WAY PLATFORM PHYSICS
     // ============================================================================
     class Actor {
       constructor(name, x, y, frames) {
@@ -1261,7 +2123,6 @@
           this.jumpBufferTimer = Math.max(0, this.jumpBufferTimer - dtMs);
         }
 
-        // Horizontal movement with smooth acceleration/deceleration
         const accel = this.onGround ? PHYSICS.MOVE_ACCEL : PHYSICS.AIR_ACCEL;
         if (moveDir !== 0) {
           this.vx += moveDir * accel * dt;
@@ -1276,7 +2137,6 @@
           }
         }
 
-        // Execute buffered or coyote jump
         if (this.jumpBufferTimer > 0 && this.coyoteTimer > 0) {
           this.vy = PHYSICS.JUMP_VELOCITY;
           this.onGround = false;
@@ -1284,24 +2144,19 @@
           this.jumpBufferTimer = 0;
         }
 
-        // Variable jump height cut when button released early
         if (!jumpHeld && this.vy < -80) {
           this.vy *= PHYSICS.JUMP_CUT_MULTIPLIER;
         }
 
-        // Gravity
         this.vy = Math.min(PHYSICS.MAX_FALL_SPEED, this.vy + PHYSICS.GRAVITY * dt);
 
-        // Separate X-axis sweep
         this.x += this.vx * dt;
         this.resolveHorizontalCollisions(world);
 
-        // Separate Y-axis sweep
         const prevBottom = this.y + this.height;
         this.y += this.vy * dt;
         this.resolveVerticalCollisions(world, prevBottom);
 
-        // Respawn safely if fallen into the chasm
         if (this.y > WORLD_HEIGHT + 36) {
           this.x = 142 * TILE_SIZE;
           this.y = 11 * TILE_SIZE;
@@ -1309,10 +2164,9 @@
           this.vy = 0;
         }
 
-        // Animation frame selection
         this.animTimer += dt;
         if (!this.onGround) {
-          this.currentFrame = 4; // Jump/Air frame
+          this.currentFrame = 4;
         } else if (Math.abs(this.vx) > 12) {
           this.currentFrame = 2 + (Math.floor(this.animTimer * 9) % 2);
         } else {
@@ -1382,7 +2236,7 @@
     }
 
     // ============================================================================
-    // 6. CAMERA2D WITH DEADZONE, LOOK-AHEAD & INTEGER PIXEL SNAPPING
+    // 9. CAMERA2D WITH DEADZONE, LOOK-AHEAD & INTEGER PIXEL SNAPPING
     // ============================================================================
     class Camera2D {
       constructor() {
@@ -1416,9 +2270,9 @@
     }
 
     // ============================================================================
-    // 7. MAIN GAME APPLICATION CONTROLLER
+    // 10. MAIN GAME APPLICATION CONTROLLER (MILESTONE 2)
     // ============================================================================
-    class PixelHeartsMilestone1 {
+    class PixelHeartsMilestone2 {
       constructor() {
         this.canvas = document.getElementById("game-canvas");
         this.ctx = this.canvas.getContext("2d", { alpha: false });
@@ -1431,6 +2285,7 @@
         this.tiles = PixelArtFactory.generateTiles();
         this.ayushFrames = PixelArtFactory.generateCharacterFrames(false);
         this.partnerFrames = PixelArtFactory.generateCharacterFrames(true);
+        this.miraSprite = PixelArtFactory.generateMiraSprite();
 
         this.input = new InputManager();
         this.world = new LevelWorld();
@@ -1438,22 +2293,308 @@
 
         this.partnerName = safeStorageGet("ph_partner_name") || "Aanya";
         this.companionHoldMode = false;
-        this.weatherMode = "fireflies"; // "fireflies" | "petals" | "rain"
+        this.weatherMode = "fireflies";
         this.orientationDismissed = false;
 
         this.ayush = new Actor("Ayush", 8 * TILE_SIZE, 12 * TILE_SIZE, this.ayushFrames);
         this.partner = new Actor(this.partnerName, 6 * TILE_SIZE, 12 * TILE_SIZE, this.partnerFrames);
 
+        // Milestone 2 State: Quest Items, Unlocked Memories, Story Flags, Mission Manager, Dialogue Controller
+        this.questItems = new Set();
+        this.unlockedMemories = new Set();
+        this.storyFlags = {
+          signRead: false,
+          miraMet: false,
+          plateActivatedOnce: false,
+          bridgeUnlockedPermanently: false,
+          shrineLit: false,
+          introShown: false
+        };
+
+        this.toastTimer = null;
+        this.missionManager = new MissionManager(this);
+        this.dialogue = new DialogueController(this);
+
         this.particles = [];
         this.floatingHearts = [];
         this.initParticles();
+
+        // Load saved progress if present and valid
+        const loadResult = SaveManager.loadGame(this);
+
         this.bindUI();
         this.bindViewportAndFullscreen();
+        this.updateCompanionUI();
+        this.updateStatsUI();
+        this.updateQuestHUD();
         this.updateViewportLayout();
         this.registerServiceWorker();
 
+        // Show introductory prologue dialogue on fresh game, or welcome-back banner on loaded save
+        if (!loadResult.loaded || !this.storyFlags.introShown) {
+          this.storyFlags.introShown = true;
+          this.dialogue.open(
+            "STARLIGHT FESTIVAL PROLOGUE",
+            [
+              `Tonight is Oakvale's annual Starlight Festival! Ayush and ${this.partnerName} have arrived in the village to light the ancient Starlight Shrine together.`,
+              `Start by walking right to inspect the Oakvale Noticeboard [col 12] and pressing [B / ACT] (or E on keyboard) to begin Mission 1.`
+            ]
+          );
+          SaveManager.saveGame(this);
+        } else {
+          this.dialogue.close(false);
+          this.showQuestToast("SAVE LOADED ♥", `Welcome back, Ayush & ${this.partnerName}!`);
+        }
+
         this.lastTime = performance.now();
         requestAnimationFrame((t) => this.loop(t));
+      }
+
+      getScrapbookCatalog() {
+        return [
+          {
+            id: "mem_1",
+            title: "Memory #1: First Coffee in Oakvale",
+            location: "Oakvale Village Rooftop (Shard #1)",
+            hint: "Climb the wooden ledges above eastern Oakvale Village (col 54).",
+            text: `Ayush still remembers how nervous he was waiting by the village lantern post—until ${this.partnerName} smiled and made the whole evening glow.`
+          },
+          {
+            id: "mem_2",
+            title: "Memory #2: Secret Under the Canopy",
+            location: "Whispering Forest High Branch (Shard #2)",
+            hint: "Leap across the mossy forest canopy platforms in Zone 2 (col 95).",
+            text: `Even when the forest trails grew steep, Ayush and ${this.partnerName} never rushed ahead alone. Every climb feels lighter side by side.`
+          },
+          {
+            id: "mem_3",
+            title: "Memory #3: Promise at the Bridge",
+            location: "Sanctuary Cliff Ledge (Shard #3)",
+            hint: "Explore the elevated ledges just before the Starlight Shrine (col 185).",
+            text: `No distance or chasm keeps us apart for long—one holds the anchor while the other builds the way across.`
+          },
+          {
+            id: "mem_4",
+            title: "Memory #4: Mira's Twin-Flame Blessing",
+            location: "Lantern Keeper's Cottage (Mission 4)",
+            hint: "Speak with Lantern Keeper Mira outside her cottage in Oakvale (col 44).",
+            text: `Lantern Keeper Mira handed ${this.partnerName} and Ayush a twin-flame charm: "A bridge isn't held by stone alone, but by trust between both banks."`
+          },
+          {
+            id: "mem_5",
+            title: "Memory #5: Starlight Shrine Promise",
+            location: "Starlight Couple Shrine Summit (Mission 6)",
+            hint: "Repair the Broken Bridge and ignite the Starlight Shrine together (col 190).",
+            text: `Under a sky full of lantern fireflies, Ayush and ${this.partnerName} lit the Starlight Beacon together—turning a quiet village evening into a forever memory.`
+          }
+        ];
+      }
+
+      unlockScrapbookMemory(memoryId, silent = false) {
+        if (!memoryId || this.unlockedMemories.has(memoryId)) return false;
+        this.unlockedMemories.add(memoryId);
+        const entry = this.getScrapbookCatalog().find((e) => e.id === memoryId);
+        if (entry && !silent) {
+          this.showQuestToast("SCRAPBOOK MEMORY UNLOCKED 📖", entry.title);
+        }
+        return true;
+      }
+
+      grantQuestItem(itemId, silent = false) {
+        if (!itemId || !QUEST_ITEM_CATALOG[itemId] || this.questItems.has(itemId)) return false;
+        this.questItems.add(itemId);
+        if (!silent) {
+          this.showQuestToast("ITEM ACQUIRED 🎒", QUEST_ITEM_CATALOG[itemId].name);
+        }
+        return true;
+      }
+
+      showQuestToast(title, body) {
+        const toast = document.getElementById("quest-toast");
+        const titleEl = document.getElementById("quest-toast-title");
+        const bodyEl = document.getElementById("quest-toast-body");
+        if (!toast || !titleEl || !bodyEl) return;
+
+        titleEl.textContent = title;
+        bodyEl.textContent = body;
+        toast.classList.remove("hidden");
+
+        if (this.toastTimer) clearTimeout(this.toastTimer);
+        this.toastTimer = setTimeout(() => {
+          toast.classList.add("hidden");
+        }, 3200);
+      }
+
+      updateQuestHUD() {
+        const badgeEl = document.getElementById("hud-quest-badge");
+        const textEl = document.getElementById("hud-quest-text");
+        if (!badgeEl || !textEl) return;
+
+        const completedCount = this.missionManager.missions.filter((m) => m.status === "completed").length;
+        const totalCount = this.missionManager.missions.length;
+        const activeMission = this.missionManager.getPrimaryTrackedMission();
+
+        if (!activeMission && completedCount === totalCount) {
+          badgeEl.textContent = `ALL ${totalCount}/${totalCount} DONE ♥`;
+          textEl.textContent = `All Starlight Festival quests & memories completed!`;
+        } else if (activeMission) {
+          const nextObj = activeMission.objectives.find((o) => !o.completed) || activeMission.objectives[0];
+          badgeEl.textContent = `QUEST ${activeMission.order}/${totalCount}`;
+          textEl.textContent = `${activeMission.title.replace(/^Mission \d+:\s*/, "")}: ${nextObj.text} (${nextObj.current}/${nextObj.target})`;
+        }
+      }
+
+      isAnyModalOpen() {
+        const modalIds = [
+          "quests-modal",
+          "inventory-modal",
+          "scrapbook-modal",
+          "settings-modal",
+          "reset-confirm-modal"
+        ];
+        return modalIds.some((id) => {
+          const el = document.getElementById(id);
+          return el && !el.classList.contains("hidden");
+        });
+      }
+
+      closeAllModals() {
+        const modalIds = [
+          "quests-modal",
+          "inventory-modal",
+          "scrapbook-modal",
+          "settings-modal",
+          "reset-confirm-modal"
+        ];
+        modalIds.forEach((id) => {
+          const el = document.getElementById(id);
+          if (el) el.classList.add("hidden");
+        });
+      }
+
+      openModal(modalId) {
+        this.closeAllModals();
+        this.input.clearAllInputs();
+        if (modalId === "quests-modal") this.renderQuestsModal();
+        if (modalId === "inventory-modal") this.renderInventoryModal();
+        if (modalId === "scrapbook-modal") this.renderScrapbookModal();
+        const el = document.getElementById(modalId);
+        if (el) el.classList.remove("hidden");
+      }
+
+      renderQuestsModal() {
+        const container = document.getElementById("quests-list-container");
+        if (!container) return;
+        container.innerHTML = "";
+
+        for (const m of this.missionManager.missions) {
+          const card = document.createElement("div");
+          card.className =
+            "item-card " +
+            (m.status === "completed"
+              ? "completed"
+              : m.status === "active"
+              ? "active-quest"
+              : "locked");
+
+          const objsHtml = m.objectives
+            .map(
+              (o) =>
+                `<li class="${o.completed ? "done" : ""}">${o.completed ? "✓" : "○"} ${o.text} <strong>(${o.current}/${o.target})</strong></li>`
+            )
+            .join("");
+
+          card.innerHTML = `
+            <div class="item-card-header">
+              <span>${m.title}</span>
+              <span class="status-badge ${m.status}">${m.status.toUpperCase()}</span>
+            </div>
+            <div style="color:var(--text-dim); font-size:11px; line-height:1.35;">${m.description}</div>
+            <ul class="obj-list">${objsHtml}</ul>
+          `;
+          container.appendChild(card);
+        }
+      }
+
+      renderInventoryModal() {
+        const container = document.getElementById("inventory-content-container");
+        if (!container) return;
+
+        const crystals = this.world.collectibles.filter((c) => c.type === "crystal" && c.collected).length;
+        const memories = this.world.collectibles.filter((c) => c.type === "memory" && c.collected).length;
+
+        let itemsHtml = "";
+        if (this.questItems.size === 0) {
+          itemsHtml = `<div class="item-card locked"><div style="color:var(--text-dim);">No special quest items yet. Explore Oakvale Village and speak with Lantern Keeper Mira!</div></div>`;
+        } else {
+          for (const itemId of this.questItems) {
+            const meta = QUEST_ITEM_CATALOG[itemId];
+            if (!meta) continue;
+            itemsHtml += `
+              <div class="item-card unlocked">
+                <div class="item-card-header">
+                  <span>${meta.icon} ${meta.name}</span>
+                  <span class="status-badge completed">KEY ITEM</span>
+                </div>
+                <div style="color:var(--text-dim); font-size:11px;">${meta.desc}</div>
+              </div>
+            `;
+          }
+        }
+
+        container.innerHTML = `
+          <div class="inv-grid" style="margin-bottom:10px;">
+            <div class="item-card active-quest">
+              <div class="item-card-header">
+                <span>♥ Heart Crystals</span>
+                <span class="stat-pill">${crystals} / 8</span>
+              </div>
+              <div style="color:var(--text-dim); font-size:11px;">結晶 of shared warmth gathered across Oakvale and Whispering Forest.</div>
+            </div>
+            <div class="item-card active-quest">
+              <div class="item-card-header">
+                <span>✦ Memory Shards</span>
+                <span class="stat-pill">${memories} / 3</span>
+              </div>
+              <div style="color:var(--text-dim); font-size:11px;">Golden starlight shards that unlock cherished moments in your Scrapbook.</div>
+            </div>
+          </div>
+          <div style="font-size:11px; font-weight:700; color:var(--accent-cyan); text-transform:uppercase; margin-bottom:6px;">Quest Items Held</div>
+          ${itemsHtml}
+        `;
+      }
+
+      renderScrapbookModal() {
+        const container = document.getElementById("scrapbook-list-container");
+        if (!container) return;
+        container.innerHTML = "";
+
+        const catalog = this.getScrapbookCatalog();
+        for (const entry of catalog) {
+          const isUnlocked = this.unlockedMemories.has(entry.id);
+          const card = document.createElement("div");
+          card.className = "item-card " + (isUnlocked ? "unlocked" : "locked");
+
+          if (isUnlocked) {
+            card.innerHTML = `
+              <div class="item-card-header">
+                <span style="color:var(--accent-gold);">✦ ${entry.title}</span>
+                <span class="status-badge completed">UNLOCKED ♥</span>
+              </div>
+              <div style="font-size:10px; color:var(--accent-cyan); margin-bottom:4px;">Location: ${entry.location}</div>
+              <div style="font-size:12px; color:var(--text-main); line-height:1.45;">"${entry.text}"</div>
+            `;
+          } else {
+            card.innerHTML = `
+              <div class="item-card-header">
+                <span>🔒 Undiscovered Memory</span>
+                <span class="status-badge locked">LOCKED</span>
+              </div>
+              <div style="font-size:11px; color:var(--text-dim);">Hint: ${entry.hint}</div>
+            `;
+          }
+          container.appendChild(card);
+        }
       }
 
       registerServiceWorker() {
@@ -1563,7 +2704,6 @@
         rootStyle.setProperty("--app-width", vw + "px");
         rootStyle.setProperty("--app-height", vh + "px");
 
-        // Ensure touch clusters never overlap or clip even at 140% scale + max padding on narrow screens
         const sliderPadEl = document.getElementById("slider-pad");
         const rawPad = sliderPadEl ? parseFloat(sliderPadEl.value) || 18 : 18;
         const maxSafePad = vw < 540 ? Math.max(8, Math.floor(vw * 0.035)) : 48;
@@ -1575,7 +2715,6 @@
         rootStyle.setProperty("--max-safe-gap", maxSafeGap + "px");
         rootStyle.setProperty("--max-safe-btn", maxSafeBtn + "px");
 
-        // Keep canvas strictly proportional at 16:9 (VIEW_WIDTH / VIEW_HEIGHT) without stretching or cropping
         const targetAspect = VIEW_WIDTH / VIEW_HEIGHT;
         let displayW = vw;
         let displayH = Math.round(vw / targetAspect);
@@ -1587,7 +2726,6 @@
         this.canvas.style.height = displayH + "px";
         this.ctx.imageSmoothingEnabled = false;
 
-        // Portrait orientation overlay check
         const overlay = document.getElementById("orientation-overlay");
         const isPortrait = vh > vw;
         if (overlay) {
@@ -1598,10 +2736,9 @@
           }
         }
 
-        // Measure actual top HUD bottom edge so #story-banner never overlaps #hud-top
         const statusCard = document.getElementById("hud-status-card");
         const rightWrap = document.getElementById("hud-right-wrap");
-        let hudBottom = 50;
+        let hudBottom = 56;
         if (statusCard) {
           const rect = statusCard.getBoundingClientRect();
           if (rect.bottom > 0) hudBottom = Math.max(hudBottom, Math.ceil(rect.bottom));
@@ -1625,8 +2762,17 @@
           this.partner.name = val;
           partnerLabel.textContent = val.toUpperCase();
           safeStorageSet("ph_partner_name", val);
+          SaveManager.saveGame(this);
           this.updateViewportLayout();
         });
+
+        const weatherLabels = {
+          fireflies: "Weather: Fireflies",
+          petals: "Weather: Sakura Petals",
+          rain: "Weather: Lantern Rain",
+        };
+        document.getElementById("btn-weather").textContent =
+          weatherLabels[this.weatherMode] || "Weather: Fireflies";
 
         const menuBtn = document.getElementById("btn-hud-menu");
         const drawer = document.getElementById("hud-actions-drawer");
@@ -1650,16 +2796,41 @@
           });
         }
 
+        // Quest Log, Inventory & Scrapbook Triggers
+        document.getElementById("hud-quest-line").addEventListener("click", () => {
+          this.openModal("quests-modal");
+          closeMenu();
+        });
+        document.getElementById("btn-quests").addEventListener("click", () => {
+          this.openModal("quests-modal");
+          closeMenu();
+        });
+        document.getElementById("btn-close-quests").addEventListener("click", () => {
+          document.getElementById("quests-modal").classList.add("hidden");
+        });
+
+        document.getElementById("btn-inventory").addEventListener("click", () => {
+          this.openModal("inventory-modal");
+          closeMenu();
+        });
+        document.getElementById("btn-close-inventory").addEventListener("click", () => {
+          document.getElementById("inventory-modal").classList.add("hidden");
+        });
+
+        document.getElementById("btn-scrapbook").addEventListener("click", () => {
+          this.openModal("scrapbook-modal");
+          closeMenu();
+        });
+        document.getElementById("btn-close-scrapbook").addEventListener("click", () => {
+          document.getElementById("scrapbook-modal").classList.add("hidden");
+        });
+
         document.getElementById("btn-weather").addEventListener("click", () => {
           const modes = ["fireflies", "petals", "rain"];
-          const labels = {
-            fireflies: "Weather: Fireflies",
-            petals: "Weather: Sakura Petals",
-            rain: "Weather: Lantern Rain",
-          };
           const nextIdx = (modes.indexOf(this.weatherMode) + 1) % modes.length;
           this.weatherMode = modes[nextIdx];
-          document.getElementById("btn-weather").textContent = labels[this.weatherMode];
+          document.getElementById("btn-weather").textContent = weatherLabels[this.weatherMode];
+          SaveManager.saveGame(this);
           closeMenu();
         });
 
@@ -1668,27 +2839,39 @@
           closeMenu();
         });
 
-        const modal = document.getElementById("settings-modal");
         document.getElementById("btn-settings").addEventListener("click", () => {
-          modal.classList.toggle("hidden");
+          const modal = document.getElementById("settings-modal");
+          const isHidden = modal.classList.contains("hidden");
+          this.closeAllModals();
+          if (isHidden) modal.classList.remove("hidden");
           closeMenu();
         });
         document.getElementById("btn-close-settings").addEventListener("click", () => {
-          modal.classList.add("hidden");
+          document.getElementById("settings-modal").classList.add("hidden");
         });
 
+        // Reset / Respawn / New Game Confirmation Modal Wiring
         document.getElementById("btn-reset").addEventListener("click", () => {
-          this.resetLevel();
+          this.openModal("reset-confirm-modal");
           closeMenu();
         });
-
-        const storyBanner = document.getElementById("story-banner");
-        document.getElementById("story-close").addEventListener("click", (e) => {
-          e.stopPropagation();
-          storyBanner.classList.add("hidden");
+        document.getElementById("btn-open-newgame-confirm").addEventListener("click", () => {
+          this.openModal("reset-confirm-modal");
         });
-        storyBanner.addEventListener("click", () => {
-          storyBanner.classList.add("hidden");
+        document.getElementById("btn-respawn-only").addEventListener("click", () => {
+          this.closeAllModals();
+          this.respawnCharactersOnly();
+        });
+        document.getElementById("btn-confirm-respawn").addEventListener("click", () => {
+          this.closeAllModals();
+          this.respawnCharactersOnly();
+        });
+        document.getElementById("btn-cancel-reset").addEventListener("click", () => {
+          document.getElementById("reset-confirm-modal").classList.add("hidden");
+        });
+        document.getElementById("btn-confirm-reset").addEventListener("click", () => {
+          this.closeAllModals();
+          this.resetAllProgressNewGame();
         });
 
         document.getElementById("btn-dismiss-orientation").addEventListener("click", () => {
@@ -1713,12 +2896,12 @@
         if (savedScale) {
           sliderScale.value = savedScale;
           rootStyle.setProperty("--touch-scale", savedScale);
-          document.getElementById("val-scale").textContent = Math.round( parseFloat(savedScale) * 100 ) + "%";
+          document.getElementById("val-scale").textContent = Math.round(parseFloat(savedScale) * 100) + "%";
         }
         if (savedOpacity) {
           sliderOpacity.value = savedOpacity;
           rootStyle.setProperty("--touch-opacity", savedOpacity);
-          document.getElementById("val-opacity").textContent = Math.round( parseFloat(savedOpacity) * 100 ) + "%";
+          document.getElementById("val-opacity").textContent = Math.round(parseFloat(savedOpacity) * 100) + "%";
         }
         if (savedPad) {
           sliderPad.value = savedPad;
@@ -1734,6 +2917,7 @@
           rootStyle.setProperty("--touch-scale", sliderScale.value);
           document.getElementById("val-scale").textContent = Math.round(sliderScale.value * 100) + "%";
           safeStorageSet("ph_touch_scale", sliderScale.value);
+          this.updateViewportLayout();
         });
         sliderOpacity.addEventListener("input", () => {
           rootStyle.setProperty("--touch-opacity", sliderOpacity.value);
@@ -1744,6 +2928,7 @@
           rootStyle.setProperty("--touch-pad", sliderPad.value + "px");
           document.getElementById("val-pad").textContent = sliderPad.value + "px";
           safeStorageSet("ph_touch_pad", sliderPad.value);
+          this.updateViewportLayout();
         });
         selectHand.addEventListener("change", () => {
           if (selectHand.value === "swapped") {
@@ -1755,8 +2940,7 @@
         });
       }
 
-      resetLevel() {
-        this.world = new LevelWorld();
+      respawnCharactersOnly() {
         this.ayush.x = 8 * TILE_SIZE;
         this.ayush.y = 12 * TILE_SIZE;
         this.ayush.vx = 0;
@@ -1767,11 +2951,49 @@
         this.partner.vy = 0;
         this.companionHoldMode = false;
         this.updateCompanionUI();
+        SaveManager.saveGame(this);
+        this.showQuestToast("RESPAWNED IN OAKVALE", "Progress, crystals & memories kept!");
+      }
+
+      resetAllProgressNewGame() {
+        SaveManager.clearSave();
+        this.world = new LevelWorld();
+        this.ayush.x = 8 * TILE_SIZE;
+        this.ayush.y = 12 * TILE_SIZE;
+        this.ayush.vx = 0;
+        this.ayush.vy = 0;
+        this.partner.x = 6 * TILE_SIZE;
+        this.partner.y = 12 * TILE_SIZE;
+        this.partner.vx = 0;
+        this.partner.vy = 0;
+        this.companionHoldMode = false;
+        this.questItems = new Set();
+        this.unlockedMemories = new Set();
+        this.storyFlags = {
+          signRead: false,
+          miraMet: false,
+          plateActivatedOnce: false,
+          bridgeUnlockedPermanently: false,
+          shrineLit: false,
+          introShown: true
+        };
+        this.missionManager = new MissionManager(this);
+        this.updateCompanionUI();
         this.updateStatsUI();
-        this.showBanner(
-          "PROTOTYPE RESET",
-          "Back in Oakvale Village! Explore the village, collect Heart Crystals and Memories, and solve the Broken Bridge puzzle together."
+        this.updateQuestHUD();
+        SaveManager.saveGame(this);
+        this.dialogue.open(
+          "NEW GAME STARTED — OAKVALE VILLAGE",
+          [
+            `All mission progress, crystals, and scrapbook memories have been reset for a fresh adventure with ${this.partnerName}.`,
+            `Walk East to the Oakvale Noticeboard [col 12] and press [B / ACT] to begin Mission 1: Explore Oakvale!`
+          ]
         );
+      }
+
+       resetLevel() {
+        // Alias preserved for compatibility: opens Reset/Respawn confirmation or respawns
+        this.respawnCharactersOnly();
       }
 
       toggleCompanionMode() {
@@ -1781,15 +3003,17 @@
         this.spawnHeartBurst(this.partner.x + 6, this.partner.y - 4);
         this.updateCompanionUI();
 
-        // If near West Pressure Plate, snap partner onto the plate when told to hold
         const plateX = 145 * TILE_SIZE;
         if (this.companionHoldMode && Math.abs(this.partner.x - plateX) < 36) {
           this.partner.x = plateX;
-          this.showBanner(
-            this.partnerName.toUpperCase() + " — HOLDING PLATE",
-            `"I've got the West Pressure Plate held down, Ayush! Cross the Starlight Bridge and lock the East Winch!"`
+          this.dialogue.open(
+            `${this.partnerName.toUpperCase()} — HOLDING PLATE`,
+            [
+              `"I've got the West Pressure Plate held down, Ayush! The Starlight Bridge is glowing—cross the ravine and lock the East Bank Winch!"`
+            ]
           );
         }
+        SaveManager.saveGame(this);
       }
 
       updateCompanionUI() {
@@ -1806,12 +3030,9 @@
         }
       }
 
-      showBanner(speaker, text) {
-        this.updateViewportLayout();
-        const banner = document.getElementById("story-banner");
-        document.getElementById("story-speaker").textContent = speaker;
-        document.getElementById("story-text").textContent = text;
-        banner.classList.remove("hidden");
+      showBanner(speaker, text, onComplete = null) {
+        const pages = Array.isArray(text) ? text : [String(text)];
+        this.dialogue.open(speaker, pages, onComplete);
       }
 
       spawnHeartBurst(x, y) {
@@ -1825,10 +3046,219 @@
         }
       }
 
-      update(dt) {
-        if (this.input.consumeSettingsToggle()) {
-          document.getElementById("settings-modal").classList.toggle("hidden");
+      handleObjectInteraction(obj) {
+        if (obj.id === "village_sign") {
+          if (!this.storyFlags.signRead) {
+            this.dialogue.open(
+              "OAKVALE NOTICEBOARD",
+              [
+                `"Welcome to Oakvale's Starlight Festival! Trail Guide: Follow the lantern path East through Whispering Forest to reach the Starlight Couple Shrine."`,
+                `${this.partnerName}: "Look, Ayush! Someone pinned a trail note here—it says Lantern Keeper Mira at the eastern cottage [col 44] has the key to the ravine bridge winch!"`
+              ],
+              () => {
+                this.storyFlags.signRead = true;
+                this.grantQuestItem("oakvale_map");
+                this.missionManager.setObjectiveProgress("m1_explore_oakvale", "read_village_sign", 1);
+                SaveManager.saveGame(this);
+              }
+            );
+          } else {
+            this.dialogue.open(
+              "OAKVALE NOTICEBOARD",
+              [
+                `"Trail Guide: Collect the 8 Heart Crystals and 3 Memory Shards along the forest canopy, and speak with Lantern Keeper Mira at col 44 before crossing the ravine."`
+              ]
+            );
+          }
+          return;
         }
+
+        if (obj.id === "elder_cottage") {
+          // Ensure Mission 1 is completed or unlock M4 if player walked straight to Mira
+          if (this.missionManager.getMission("m4_find_lantern_keeper").status === "locked") {
+            this.missionManager.unlockMission("m4_find_lantern_keeper", true);
+          }
+
+          if (!this.storyFlags.miraMet) {
+            this.dialogue.open(
+              "LANTERN KEEPER MIRA",
+              [
+                `"Blessings on your evening, Ayush and ${this.partnerName}! Heading up to the Starlight Shrine? Last night's gale snapped the old wooden rope bridge across the ravine."`,
+                `"Take this Starlight Winch Key and Twin-Flame Lantern Charm. When you reach the West Bank Plate [col 145], have ${this.partnerName} hold the plate ([C] or ♥ STAY/GO) while Ayush crosses the spectral span and locks the East Winch!"`
+              ],
+              () => {
+                this.storyFlags.miraMet = true;
+                this.grantQuestItem("winch_key");
+                this.grantQuestItem("lantern_charm");
+                this.unlockScrapbookMemory("mem_4");
+                this.missionManager.setObjectiveProgress("m4_find_lantern_keeper", "talk_to_mira", 1);
+                SaveManager.saveGame(this);
+              }
+            );
+          } else {
+            const bridgeDone = this.world.bridgeUnlockedPermanently;
+            this.dialogue.open(
+              "LANTERN KEEPER MIRA",
+              [
+                bridgeDone
+                  ? `"I saw the Starlight Bridge flare to life across the ravine! Head up to the Shrine summit together and light the beacon!"`
+                  : `"Remember: position ${this.partnerName} on the West Stone Plate [col 145] and press [C / ♥ STAY-GO], then cross the bridge and use my Winch Key on the East Bank Winch [col 168]."`
+              ]
+            );
+          }
+          return;
+        }
+
+        if (obj.id === "west_plate") {
+          this.dialogue.open(
+            "ANCIENT STONE PRESSURE PLATE",
+            [
+              `This rune-carved plate powers the Starlight Bridge across the chasm. Position ${this.partnerName} on the plate and press [C] (or tap ♥ STAY/GO) so she holds it down while Ayush crosses!`
+            ]
+          );
+          return;
+        }
+
+        if (obj.id === "east_winch") {
+          if (this.world.bridgeUnlockedPermanently) {
+            this.dialogue.open(
+              "EAST BANK BRIDGE WINCH",
+              [
+                `The suspension cables are permanently locked with Mira's Starlight Winch Key. Both partners can cross freely!`
+              ]
+            );
+            return;
+          }
+
+          // Check if player has spoken to Mira (or unlock M5 and lock bridge if they reached the East Winch via the pressure plate!)
+          if (!this.world.platePressed && this.ayush.x < 150 * TILE_SIZE) {
+            this.dialogue.open(
+              "EAST BANK BRIDGE WINCH",
+              [`You must cross the chasm while the West Stone Pressure Plate is held down to reach the winch.`]
+            );
+            return;
+          }
+
+          if (this.missionManager.getMission("m5_repair_bridge").status === "locked") {
+            this.missionManager.unlockMission("m5_repair_bridge", true);
+          }
+
+          this.dialogue.open(
+            "BRIDGE REPAIRED!",
+            [
+              `Ayush engaged the East Bank Winch! The Starlight Bridge is now permanently anchored across the ravine.`,
+              `${this.partnerName} switches back to Follow mode and sprints across the glowing span to rejoin you!`
+            ],
+            () => {
+              this.world.bridgeUnlockedPermanently = true;
+              this.storyFlags.bridgeUnlockedPermanently = true;
+              this.companionHoldMode = false;
+              this.updateCompanionUI();
+              this.updateStatsUI();
+              this.spawnHeartBurst(obj.x, obj.y - 10);
+              this.missionManager.setObjectiveProgress("m5_repair_bridge", "hold_west_plate", 1, true);
+              this.missionManager.setObjectiveProgress("m5_repair_bridge", "lock_east_winch", 1);
+              SaveManager.saveGame(this);
+            }
+          );
+          return;
+        }
+
+        if (obj.id === "starlight_shrine") {
+          const partnerDist = Math.hypot(this.partner.x + 6 - obj.x, this.partner.y + 8 - obj.y);
+          if (!this.world.bridgeUnlockedPermanently) {
+            this.dialogue.open(
+              "STARLIGHT COUPLE SHRINE",
+              [
+                `The Shrine awaits both hearts, but the Broken Bridge must be permanently repaired first so ${this.partnerName} can stand beside you!`
+              ]
+            );
+            return;
+          }
+
+          if (partnerDist >= 56) {
+            this.dialogue.open(
+              "STARLIGHT COUPLE SHRINE",
+              [
+                `Both hearts are needed to ignite the Starlight Beacon! Make sure ${this.partnerName} is in Follow mode ([C]) and standing right beside you at the Shrine.`
+              ]
+            );
+            return;
+          }
+
+          const crystals = this.world.collectibles.filter((c) => c.type === "crystal" && c.collected).length;
+          const memories = this.world.collectibles.filter((c) => c.type === "memory" && c.collected).length;
+
+          if (this.missionManager.getMission("m6_light_shrine").status === "locked") {
+            this.missionManager.unlockMission("m6_light_shrine", true);
+          }
+
+          this.dialogue.open(
+            `♥ STARLIGHT SHRINE IGNITED — AYUSH & ${this.partnerName.toUpperCase()} ♥`,
+            [
+              `Hand in hand, Ayush and ${this.partnerName} raise the Twin-Flame Charm. A pillar of rose-gold starlight arcs into the night sky above Oakvale!`,
+              `Milestone 2 Story Complete! Heart Crystals: ${crystals}/8 | Memory Shards: ${memories}/3 | Scrapbook Memories Unlocked: ${Math.min(5, this.unlockedMemories.size + 1)}/5.`
+            ],
+            () => {
+              this.world.shrineLit = true;
+              this.storyFlags.shrineLit = true;
+              this.grantQuestItem("starlight_emblem");
+              this.unlockScrapbookMemory("mem_5");
+              this.spawnHeartBurst(this.ayush.x, this.ayush.y - 8);
+              this.spawnHeartBurst(this.partner.x, this.partner.y - 8);
+              this.missionManager.setObjectiveProgress("m6_light_shrine", "ignite_shrine_together", 1);
+              SaveManager.saveGame(this);
+            }
+          );
+        }
+      }
+
+      update(dt) {
+        // Keyboard shortcuts for modals
+        if (this.input.consumeKey("KeyP")) {
+          const modal = document.getElementById("settings-modal");
+          const isHidden = modal.classList.contains("hidden");
+          this.closeAllModals();
+          if (isHidden) modal.classList.remove("hidden");
+        }
+        if (this.input.consumeKey("KeyQ")) {
+          const modal = document.getElementById("quests-modal");
+          const isHidden = modal.classList.contains("hidden");
+          this.closeAllModals();
+          if (isHidden) this.openModal("quests-modal");
+        }
+        if (this.input.consumeKey("KeyI")) {
+          const modal = document.getElementById("inventory-modal");
+          const isHidden = modal.classList.contains("hidden");
+          this.closeAllModals();
+          if (isHidden) this.openModal("inventory-modal");
+        }
+        if (this.input.consumeKey("KeyM")) {
+          const modal = document.getElementById("scrapbook-modal");
+          const isHidden = modal.classList.contains("hidden");
+          this.closeAllModals();
+          if (isHidden) this.openModal("scrapbook-modal");
+        }
+
+        // If a modal is open, pause gameplay movement so UI interaction never moves Ayush
+        if (this.isAnyModalOpen()) {
+          this.input.endFrame();
+          return;
+        }
+
+        // If multi-step dialogue is open, [B / ACT / E / Enter] advances dialogue instead of moving/jumping
+        if (this.dialogue.isOpen) {
+          if (this.input.consumeInteractPress() || this.input.consumeJumpPress()) {
+            this.dialogue.advance();
+          }
+          this.ayush.updatePhysics(dt, this.world, 0, false, false);
+          this.partner.updatePhysics(dt, this.world, 0, false, false);
+          this.camera.update(dt, this.ayush);
+          this.updateParticles(dt);
+          this.input.endFrame();
+          return;
+        }
+
         if (this.input.consumeCompanionToggle()) {
           this.toggleCompanionMode();
         }
@@ -1844,7 +3274,6 @@
         let partnerJump = false;
         if (!this.companionHoldMode) {
           const dx = this.ayush.x - this.partner.x;
-          // Do not walk into the chasm if bridge is not active
           const nearChasmEdge =
             !this.world.platePressed &&
             !this.world.bridgeUnlockedPermanently &&
@@ -1854,7 +3283,6 @@
 
           if (!nearChasmEdge && Math.abs(dx) > 24) {
             partnerMove = dx > 0 ? 1 : -1;
-            // Jump if Ayush is higher or if blocked by a step
             if (
               this.partner.onGround &&
               (this.ayush.y < this.partner.y - 14 || Math.abs(this.partner.vx) < 5)
@@ -1862,7 +3290,6 @@
               partnerJump = true;
             }
           }
-          // Teleport catch-up if partner gets left very far behind AND bridge is unlocked
           if (Math.abs(dx) > 340 && (this.world.bridgeUnlockedPermanently || this.ayush.x < 148 * TILE_SIZE)) {
             this.partner.x = this.ayush.x - this.ayush.facing * 20;
             this.partner.y = this.ayush.y;
@@ -1875,9 +3302,22 @@
         const plateX = 145 * TILE_SIZE;
         const ayushOnPlate = Math.abs(this.ayush.x - plateX) < 18 && this.ayush.onGround;
         const partnerOnPlate = Math.abs(this.partner.x - plateX) < 18 && this.partner.onGround;
+        const wasPlatePressed = this.world.platePressed;
         this.world.platePressed = ayushOnPlate || partnerOnPlate || this.world.bridgeUnlockedPermanently;
 
-        // Collectibles check (both Ayush and Partner can pick up shared items)
+        if (this.world.platePressed && !this.storyFlags.plateActivatedOnce) {
+          this.storyFlags.plateActivatedOnce = true;
+          if (this.missionManager.getMission("m5_repair_bridge").status === "locked") {
+            this.missionManager.unlockMission("m5_repair_bridge", true);
+          }
+          this.missionManager.setObjectiveProgress("m5_repair_bridge", "hold_west_plate", 1);
+          SaveManager.saveGame(this);
+        }
+        if (wasPlatePressed !== this.world.platePressed) {
+          this.updateStatsUI();
+        }
+
+        // Collectibles check (idempotent: each item.collected can only transition false -> true once)
         for (const item of this.world.collectibles) {
           if (item.collected) continue;
           const dAyush = Math.hypot(this.ayush.x + 6 - item.x, this.ayush.y + 8 - item.y);
@@ -1885,10 +3325,24 @@
           if (dAyush < 16 || dPartner < 16) {
             item.collected = true;
             this.spawnHeartBurst(item.x, item.y);
-            if (item.type === "memory") {
-              this.showBanner(item.title, item.text);
+
+            if (item.type === "crystal") {
+              if (this.missionManager.getMission("m2_gather_crystals").status === "locked") {
+                this.missionManager.unlockMission("m2_gather_crystals", true);
+              }
+              this.missionManager.syncCollectibleCounts(false);
+            } else if (item.type === "memory") {
+              if (this.missionManager.getMission("m3_recover_memories").status === "locked") {
+                this.missionManager.unlockMission("m3_recover_memories", true);
+              }
+              this.unlockScrapbookMemory(item.memoryId, true);
+              this.missionManager.syncCollectibleCounts(false);
+              this.dialogue.open(item.title, [item.text]);
             }
+
             this.updateStatsUI();
+            this.updateQuestHUD();
+            SaveManager.saveGame(this);
           }
         }
 
@@ -1899,46 +3353,12 @@
             const dist = Math.hypot(this.ayush.x + 6 - obj.x, this.ayush.y + 8 - obj.y);
             if (dist <= obj.radius) {
               handled = true;
-              if (obj.id === "east_winch") {
-                this.world.bridgeUnlockedPermanently = true;
-                this.companionHoldMode = false;
-                this.updateCompanionUI();
-                this.updateStatsUI();
-                this.spawnHeartBurst(obj.x, obj.y - 10);
-                this.showBanner(
-                  "BRIDGE REPAIRED!",
-                  `Ayush locked the East Winch! The Starlight Bridge is now permanently anchored, and ${this.partnerName} is running across to join you!`
-                );
-              } else if (obj.id === "starlight_shrine") {
-                const partnerDist = Math.hypot(this.partner.x + 6 - obj.x, this.partner.y + 8 - obj.y);
-                if (partnerDist < 56) {
-                  this.world.shrineLit = true;
-                  this.spawnHeartBurst(this.ayush.x, this.ayush.y - 8);
-                  this.spawnHeartBurst(this.partner.x, this.partner.y - 8);
-                  this.showBanner(
-                    `♥ MILESTONE 1 COMPLETE — AYUSH & ${this.partnerName.toUpperCase()} ♥`,
-                    `Together you unlocked the Starlight Shrine! Crystals collected: ${this.world.collectibles.filter((c) => c.type === "crystal" && c.collected).length}/8 | Shared Memories: ${this.world.collectibles.filter((c) => c.type === "memory" && c.collected).length}/3.`
-                  );
-                } else {
-                  this.showBanner(
-                    "STARLIGHT SHRINE",
-                    `Both hearts are needed to light the beacon! Make sure ${this.partnerName} is in Follow mode ([C]) and standing beside you.`
-                  );
-                }
-              } else {
-                this.showBanner(obj.speaker, obj.text);
-              }
+              this.handleObjectInteraction(obj);
               break;
             }
           }
           if (!handled) {
-            // Dismiss story banner or do a couple heart emote
-            const banner = document.getElementById("story-banner");
-            if (!banner.classList.contains("hidden")) {
-              banner.classList.add("hidden");
-            } else {
-              this.spawnHeartBurst(this.ayush.x + 6, this.ayush.y - 4);
-            }
+            this.spawnHeartBurst(this.ayush.x + 6, this.ayush.y - 4);
           }
         }
 
@@ -1952,7 +3372,6 @@
           zoneEl.textContent = "ZONE 3: BROKEN BRIDGE & SHRINE";
         }
 
-        // Update Camera & Weather Particles
         this.camera.update(dt, this.ayush);
         this.updateParticles(dt);
         this.input.endFrame();
@@ -2004,7 +3423,7 @@
       }
 
       // ==========================================================================
-      // 8. PIXEL-PERFECT LAYERED RENDERER (Parallax, Scenery, Tiles, Actors, Glow)
+      // 11. PIXEL-PERFECT LAYERED RENDERER
       // ==========================================================================
       render(nowMs) {
         const ctx = this.offCtx;
@@ -2019,7 +3438,7 @@
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
 
-        // 2. Parallax Stars & Crescent Moon (0.05x scroll)
+        // 2. Parallax Stars & Crescent Moon
         ctx.fillStyle = "#fef08a";
         ctx.fillRect(390 - Math.floor(camX * 0.03), 28, 14, 14);
         ctx.fillStyle = "#120c24";
@@ -2032,7 +3451,7 @@
           ctx.fillRect(sx, sy, 1, 1);
         }
 
-        // 3. Parallax Mountain Silhouettes (0.18x scroll)
+        // 3. Parallax Mountain Silhouettes
         ctx.fillStyle = "#191233";
         for (let i = 0; i < 12; i++) {
           const mx = ((i * 95 - Math.floor(camX * 0.18)) % (VIEW_WIDTH + 120)) - 60;
@@ -2044,7 +3463,7 @@
           ctx.fill();
         }
 
-        // 4. Parallax Distant Pine Canopy (0.38x scroll)
+        // 4. Parallax Distant Pine Canopy
         ctx.fillStyle = "#111c2d";
         for (let i = 0; i < 24; i++) {
           const tx = ((i * 44 - Math.floor(camX * 0.38)) % (VIEW_WIDTH + 60)) - 30;
@@ -2052,7 +3471,7 @@
           ctx.fillRect(tx, VIEW_HEIGHT - th, 28, th);
         }
 
-        // 5. World Background Architecture (Village Cottages, Forest Trees, Shrine)
+        // 5. World Background Architecture
         this.renderWorldBackdrop(ctx, camX, camY, nowMs);
 
         // 6. Tilemap Layer
@@ -2076,7 +3495,6 @@
               if (this.world.platePressed || this.world.bridgeUnlockedPermanently) {
                 ctx.drawImage(this.tiles.magicBridge, sx, sy);
               } else if (c % 2 === 0) {
-                // Faint ghost outline of broken bridge
                 ctx.fillStyle = "rgba(56, 189, 248, 0.22)";
                 ctx.fillRect(sx + 2, sy + 1, 12, 3);
               }
@@ -2106,14 +3524,12 @@
         // 10. Weather Particles & Restrained Lantern Lighting
         this.renderWeatherAndLighting(ctx, camX, camY, nowMs);
 
-        // Blit crisp offscreen buffer to responsive display canvas
         this.ctx.drawImage(this.offscreen, 0, 0, this.canvas.width, this.canvas.height);
       }
 
       renderWorldBackdrop(ctx, camX, camY, nowMs) {
         const groundY = 15 * TILE_SIZE - camY;
 
-        // Zone 1 Cottages in Oakvale Village
         const cottages = [
           { col: 15, w: 68, h: 52, roof: "#be123c" },
           { col: 34, w: 78, h: 60, roof: "#9333ea" },
@@ -2123,25 +3539,41 @@
           const cx = cot.col * TILE_SIZE - camX;
           if (cx + cot.w < 0 || cx > VIEW_WIDTH) continue;
           const cy = groundY - cot.h;
-          // Timber walls
           ctx.fillStyle = "#fde68a";
           ctx.fillRect(cx + 4, cy + 16, cot.w - 8, cot.h - 16);
           ctx.fillStyle = "#78350f";
           ctx.fillRect(cx + 4, cy + 16, 4, cot.h - 16);
           ctx.fillRect(cx + cot.w - 8, cy + 16, 4, cot.h - 16);
           ctx.fillRect(cx + 4, cy + 34, cot.w - 8, 3);
-          // Pitched roof
           ctx.fillStyle = cot.roof;
           ctx.fillRect(cx, cy + 8, cot.w, 10);
           ctx.fillRect(cx + 6, cy, cot.w - 12, 8);
-          // Warm glowing window
           ctx.fillStyle = "#fef08a";
           ctx.fillRect(cx + 16, cy + 22, 12, 10);
           ctx.fillStyle = "#78350f";
           ctx.fillRect(cx + 21, cy + 22, 2, 10);
-          // Wooden door
           ctx.fillStyle = "#451a03";
           ctx.fillRect(cx + cot.w - 24, cy + cot.h - 22, 12, 22);
+        }
+
+        // Oakvale Noticeboard wooden sign at col 12
+        const signX = 12 * TILE_SIZE - camX;
+        if (signX > -24 && signX < VIEW_WIDTH + 24) {
+          ctx.fillStyle = "#78350f";
+          ctx.fillRect(signX + 6, groundY - 16, 3, 16);
+          ctx.fillStyle = "#b45309";
+          ctx.fillRect(signX, groundY - 22, 15, 10);
+          ctx.fillStyle = "#fef08a";
+          ctx.fillRect(signX + 2, groundY - 20, 11, 6);
+        }
+
+        // Lantern Keeper Mira NPC standing by Elder Cottage at col 44
+        const miraX = Math.round(44 * TILE_SIZE - camX);
+        if (miraX > -24 && miraX < VIEW_WIDTH + 24) {
+          ctx.drawImage(this.miraSprite, miraX, groundY - 18);
+          ctx.font = "bold 6px monospace";
+          ctx.fillStyle = "#fde047";
+          ctx.fillText("MIRA", miraX, groundY - 21);
         }
 
         // Zone 2 Whispering Forest Ancient Trees
@@ -2166,7 +3598,6 @@
           ctx.fillRect(sx + 20, groundY - 48, 8, 40);
           ctx.fillStyle = "#94a3b8";
           ctx.fillRect(sx - 16, groundY - 56, 48, 8);
-          // Shrine core crystal
           const pulse = Math.sin(nowMs * 0.005) * 2;
           ctx.fillStyle = this.world.shrineLit ? "#fb7185" : "#38bdf8";
           ctx.fillRect(sx + 3, groundY - 34 + pulse, 10, 14);
@@ -2176,7 +3607,6 @@
       renderPropsAndCollectibles(ctx, camX, camY, nowMs) {
         const groundY = 15 * TILE_SIZE - camY;
 
-        // Village & Forest Lantern Posts
         const lanternCols = [10, 28, 46, 64, 88, 116, 144, 169, 186];
         for (const col of lanternCols) {
           const lx = col * TILE_SIZE - camX;
@@ -2216,7 +3646,6 @@
             ctx.fillStyle = "#ffe4e6";
             ctx.fillRect(ix + 3, iy + 2, 2, 2);
           } else {
-            // Golden Star Memory Shard
             ctx.fillStyle = "#fbbf24";
             ctx.fillRect(ix + 3, iy - 1, 4, 10);
             ctx.fillRect(ix, iy + 2, 10, 4);
@@ -2257,7 +3686,6 @@
         }
         ctx.restore();
 
-        // Crisp floating nameplate
         ctx.font = "bold 7px monospace";
         const textW = ctx.measureText(actor.name).width;
         const tx = Math.round(actor.x + actor.width / 2 - camX - textW / 2);
@@ -2269,7 +3697,6 @@
       }
 
       renderWeatherAndLighting(ctx, camX, camY, nowMs) {
-        // Weather particles
         for (const p of this.particles) {
           const px = Math.round(p.x);
           const py = Math.round(p.y);
@@ -2286,7 +3713,6 @@
           }
         }
 
-        // Restrained warm additive light halos around lanterns & couple
         ctx.save();
         ctx.globalCompositeOperation = "lighter";
         const ax = Math.round(this.ayush.x + 6 - camX);
@@ -2313,7 +3739,6 @@
       loop(nowMs) {
         const rawDt = (nowMs - this.lastTime) / 1000;
         this.lastTime = nowMs;
-        // Clamp delta-time to prevent tunneling after tab-switch or frame drop
         const dt = Math.min(rawDt, 1 / 20);
 
         this.update(dt);
@@ -2324,7 +3749,7 @@
 
     function bootPixelHearts() {
       if (!window.__PIXEL_HEARTS_GAME__) {
-        window.__PIXEL_HEARTS_GAME__ = new PixelHeartsMilestone1();
+        window.__PIXEL_HEARTS_GAME__ = new PixelHeartsMilestone2();
       }
     }
     if (document.readyState === "loading") {
