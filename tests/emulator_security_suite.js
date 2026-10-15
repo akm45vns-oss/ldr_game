@@ -229,11 +229,43 @@ async function runEmulatorSecuritySuite() {
     // ------------------------------------------------------------------------
     // 7. Member cannot directly grant authoritative puzzle completion or rewards
     // ------------------------------------------------------------------------
-    console.log('\n--- Test 7: Authoritative Progression Boundary Enforcement ---');
+    console.log('\n--- Test 7: Authoritative Progression & CoopState Boundary Enforcement ---');
     await assertFails(
       aliceDb.ref(`rooms/${COUPLE_ID}/coopState/bridgeUnlockedPermanently`).set(true)
     );
-    report('Alice cannot write arbitrary authoritative state to coopState', true, 'Direct puzzle solve rejected ($other: false)');
+    report('Alice cannot write arbitrary bridgeUnlockedPermanently to coopState', true, 'Direct puzzle solve rejected ($other: false)');
+
+    await assertFails(
+      aliceDb.ref(`rooms/${COUPLE_ID}/coopState/gameWon`).set(true)
+    );
+    report('Alice cannot write gameWon under coopState', true, 'Unexpected gameWon rejected ($other: false)');
+
+    await assertFails(
+      aliceDb.ref(`rooms/${COUPLE_ID}/coopState/bridgeSolved`).set(true)
+    );
+    report('Alice cannot write bridgeSolved under coopState', true, 'Unexpected bridgeSolved rejected ($other: false)');
+
+    await assertFails(
+      aliceDb.ref(`rooms/${COUPLE_ID}/coopState/shrineCompleted`).set(true)
+    );
+    report('Alice cannot write shrineCompleted under coopState', true, 'Unexpected shrineCompleted rejected ($other: false)');
+
+    await assertFails(
+      aliceDb.ref(`rooms/${COUPLE_ID}/coopState`).set("corrupted_primitive_string")
+    );
+    report('Alice cannot overwrite coopState with primitive', true, 'Primitive coopState write rejected (newData.hasChildren())');
+
+    await assertFails(
+      aliceDb.ref(`rooms/${COUPLE_ID}/coopState`).set({
+        pressurePlate: {
+          pressed: true,
+          pressedBy: ALICE_UID,
+          timestamp: Date.now()
+        },
+        gameWon: true
+      })
+    );
+    report('Alice cannot batch-write coopState with unexpected children', true, 'Batch write with gameWon rejected ($other: false)');
 
     await assertFails(
       aliceDb.ref(`rooms/${COUPLE_ID}/coopState/pressurePlate`).set({
@@ -243,6 +275,62 @@ async function runEmulatorSecuritySuite() {
       })
     );
     report('Alice cannot spoof pressedBy as Bob on pressurePlate', true, 'pressedBy spoofing denied');
+
+    await assertFails(
+      aliceDb.ref(`rooms/${COUPLE_ID}/coopState/pressurePlate`).set({
+        pressed: true,
+        pressedBy: null, // Pressed without pressedBy!
+        timestamp: Date.now()
+      })
+    );
+    report('Alice cannot set pressed: true with pressedBy: null', true, 'Active plate requires pressedBy === auth.uid');
+
+    await assertFails(
+      aliceDb.ref(`rooms/${COUPLE_ID}/coopState/pressurePlate`).set({
+        pressed: false,
+        pressedBy: ALICE_UID, // Released plate must not retain pressedBy
+        timestamp: Date.now()
+      })
+    );
+    report('Alice cannot set pressed: false with non-null pressedBy', true, 'Released plate requires null pressedBy');
+
+    await assertFails(
+      aliceDb.ref(`rooms/${COUPLE_ID}/coopState/pressurePlate`).set({
+        pressed: true,
+        pressedBy: ALICE_UID,
+        timestamp: -100 // Invalid negative timestamp
+      })
+    );
+    report('Alice cannot write negative timestamp on pressurePlate', true, 'Negative timestamp rejected');
+
+    await assertFails(
+      aliceDb.ref(`rooms/${COUPLE_ID}/coopState/pressurePlate`).set({
+        pressed: true,
+        pressedBy: ALICE_UID,
+        timestamp: Date.now(),
+        exploitUnlock: true // Extra unexpected property inside pressurePlate
+      })
+    );
+    report('Alice cannot write unexpected extra field inside pressurePlate', true, 'Unexpected pressurePlate property rejected ($other: false)');
+
+    // Legitimate step on and step off
+    await assertSucceeds(
+      aliceDb.ref(`rooms/${COUPLE_ID}/coopState/pressurePlate`).set({
+        pressed: true,
+        pressedBy: ALICE_UID,
+        timestamp: Date.now()
+      })
+    );
+    report('Alice can legitimately activate pressurePlate with own UID', true, 'Valid active plate write permitted');
+
+    await assertSucceeds(
+      aliceDb.ref(`rooms/${COUPLE_ID}/coopState/pressurePlate`).set({
+        pressed: false,
+        pressedBy: null,
+        timestamp: Date.now()
+      })
+    );
+    report('Alice can legitimately release pressurePlate with null pressedBy', true, 'Valid released plate write permitted');
 
     // ------------------------------------------------------------------------
     // 8. Malformed and unexpected player-state fields are rejected

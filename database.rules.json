@@ -128,16 +128,17 @@
         },
         "coopState": {
           ".write": "auth != null && root.child('rooms').child($coupleId).child('members').child(auth.uid).val() === true",
+          ".validate": "newData.hasChildren()",
           "pressurePlate": {
-            ".validate": "newData.hasChildren(['pressed', 'timestamp'])",
+            ".validate": "newData.hasChildren(['pressed', 'timestamp']) && ((newData.child('pressed').val() === true && newData.child('pressedBy').val() === auth.uid) || (newData.child('pressed').val() === false && (newData.child('pressedBy').val() === null || !newData.hasChild('pressedBy'))))",
             "pressed": {
               ".validate": "newData.isBoolean()"
             },
             "pressedBy": {
-              ".validate": "(newData.val() === null || (newData.isString() && newData.val() === auth.uid))"
+              ".validate": "newData.val() === null || (newData.isString() && newData.val() === auth.uid)"
             },
             "timestamp": {
-              ".validate": "newData.isNumber()"
+              ".validate": "newData.isNumber() && newData.val() > 0"
             },
             "$other": {
               ".validate": false

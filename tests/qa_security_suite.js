@@ -194,11 +194,14 @@ class RTDBSecuritySimulator {
       }
       if (newData.pressurePlate) {
         const pp = newData.pressurePlate;
-        if (typeof pp.pressed !== 'boolean' || typeof pp.timestamp !== 'number') {
+        if (typeof pp.pressed !== 'boolean' || typeof pp.timestamp !== 'number' || pp.timestamp <= 0) {
           return { allowed: false, reason: "Malformed pressurePlate schema" };
         }
         if (pp.pressed && pp.pressedBy !== auth.uid) {
           return { allowed: false, reason: "Cannot spoof pressedBy as another user" };
+        }
+        if (!pp.pressed && pp.pressedBy !== null && pp.pressedBy !== undefined) {
+          return { allowed: false, reason: "Released plate requires null pressedBy" };
         }
         for (const pk of Object.keys(pp)) {
           if (!['pressed', 'pressedBy', 'timestamp'].includes(pk)) {
