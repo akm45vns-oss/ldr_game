@@ -23,20 +23,33 @@ service cloud.firestore {
 
     // User Profiles
     match /users/{userId} {
-      allow read: if isOwner(userId);
-      allow create, update: if isOwner(userId) &&
-        // Prevent users from tampering with coupleId directly; coupleId must be managed via Cloud Functions
-        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['coupleId']) || resource == null);
+      allow read: if isAuthenticated();
+      allow create, update: if isOwner(userId);
       allow delete: if false;
     }
 
-    // Couple Membership Records
+    // Couple Membership Records (Directly supports Spark Free Plan & Blaze Plan)
     match /couples/{coupleId} {
-      // Only linked members can read the couple record
+      // Members can read their couple record
       allow read: if isAuthenticated() && request.auth.uid in resource.data.members;
 
-      // Creation, membership modifications, and invite generation MUST go through Cloud Functions
-      allow create, update, delete: if false;
+      // Create couple: Creator must be the initial sole member
+      allow create: if isAuthenticated() &&
+        request.resource.data.members == [request.auth.uid] &&
+        request.resource.data.coupleId == coupleId;
+
+      // Update couple:
+      // Case 1: Existing member updates metadata or invites (without tampering member list)
+      // Case 2: Second member joins an open couple (members.size() == 1 -> 2)
+      allow update: if isAuthenticated() && (
+        (request.auth.uid in resource.data.members && request.resource.data.members == resource.data.members) ||
+        (resource.data.members.size() == 1 &&
+         !(request.auth.uid in resource.data.members) &&
+         request.resource.data.members.size() == 2 &&
+         request.auth.uid in request.resource.data.members)
+      );
+
+      allow delete: if false;
 
       // Shared Cloud Save Subcollection
       match /shared_save/{saveDoc} {
@@ -53,10 +66,26 @@ service cloud.firestore {
       }
     }
 
-    // Invitation Codes & Hashes
-    // Strictly private to Cloud Functions (Admin SDK); clients CANNOT read or write directly
+    // Cryptographic Invitations (Protected by SHA-256 Hashing and Atomic Single-Use)
     match /invites/{inviteHash} {
-      allow read, write: if false;
+      // Any authenticated user can read an invite to verify code hash and coupleId
+      allow read: if isAuthenticated();
+
+      // Only a verified member of that couple can create an invitation for it
+      allow create: if isAuthenticated() &&
+        request.auth.uid == request.resource.data.createdBy &&
+        isCoupleMember(request.resource.data.coupleId) &&
+        request.resource.data.redeemed == false &&
+        request.resource.data.expiresAt > request.time.toMillis();
+
+      // Atomic redemption: Can only transition once from redeemed: false to redeemed: true
+      allow update: if isAuthenticated() &&
+        resource.data.redeemed == false &&
+        request.resource.data.redeemed == true &&
+        request.resource.data.redeemedBy == request.auth.uid &&
+        resource.data.expiresAt > request.time.toMillis();
+
+      allow delete: if false;
     }
   }
 }
