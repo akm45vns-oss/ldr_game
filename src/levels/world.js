@@ -65,7 +65,7 @@ export class LevelWorld {
         y: 11.6 * 16,
         collected: false,
         title: "Memory #1: First Coffee in Oakvale",
-        text: "Ayush still remembers how nervous he was waiting by the village lantern post—until she smiled and made the whole evening glow."
+        text: "A sweet memory of waiting by the village lantern post—until a gentle smile made the whole evening glow."
       },
       { id: "c3", type: "crystal", x: 76.5 * 16, y: 11.6 * 16, collected: false },
       { id: "c4", type: "crystal", x: 86 * 16, y: 9.6 * 16, collected: false },
@@ -119,7 +119,7 @@ export class LevelWorld {
         y: 14.5 * 16,
         radius: 38,
         speaker: "ANCIENT STONE PRESSURE PLATE",
-        text: "Position your partner here and press [C] (or tap ♥ STAY/GO) so they hold the plate down while Ayush crosses the bridge!"
+        text: "Position your partner here and press [C] (or tap ♥ STAY/GO) so they hold the plate down while you cross the bridge!"
       },
       {
         id: "east_winch",
@@ -135,7 +135,7 @@ export class LevelWorld {
         y: 13 * 16,
         radius: 46,
         speaker: "STARLIGHT COUPLE SHRINE",
-        text: "Bring both Ayush and your partner together at the Shrine and press [B / ACT] to ignite the Starlight Beacon!"
+        text: "Bring both partners together at the Shrine and press [B / ACT] to ignite the Starlight Beacon!"
       },
     ];
   }

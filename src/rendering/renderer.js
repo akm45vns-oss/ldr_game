@@ -1,6 +1,6 @@
 import { VIEW_WIDTH, VIEW_HEIGHT, RENDER_SCALE, TILE_SIZE, LEVEL_COLS, LEVEL_ROWS } from '../core/constants.js';
 import { drawRoundedRect, drawSacredSpiritTree, drawAncientShrineArch } from './structures.js';
-import { drawAyushHero, drawPartnerSpirit, drawRemotePartnerHero } from './characters.js';
+import { drawMaleHero, drawFemaleHero, drawAyushHero, drawPartnerSpirit, drawRemotePartnerHero } from './characters.js';
 
 // Game Renderer: Compositor, Parallax, Backdrop, Terrain, and Particle Effects
 export class GameRenderer {
@@ -149,14 +149,25 @@ export class GameRenderer {
       : null;
 
     if (remoteActor) {
-      drawRemotePartnerHero(ctx, remoteActor, camX, camY, nowMs);
+      if (remoteActor.avatar === "male" || remoteActor.avatar === "bhoot") {
+        drawMaleHero(ctx, remoteActor, camX, camY, nowMs, true);
+      } else {
+        drawFemaleHero(ctx, remoteActor, camX, camY, nowMs, true);
+      }
     }
 
     if (game.partner && game.partner.visible !== false) {
       drawPartnerSpirit(ctx, game.partner, game.companionHoldMode, camX, camY, nowMs);
     }
 
-    drawAyushHero(ctx, game.ayush, camX, camY, nowMs);
+    const localActor = game.player || game.ayush;
+    if (localActor) {
+      if (game.selectedCharacter === "female") {
+        drawFemaleHero(ctx, localActor, camX, camY, nowMs, false);
+      } else {
+        drawMaleHero(ctx, localActor, camX, camY, nowMs, false);
+      }
+    }
 
     // 11. Landing Dust Motes & Floating Hearts
     for (const m of game.dustMotes) {

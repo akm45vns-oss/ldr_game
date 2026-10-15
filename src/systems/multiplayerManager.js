@@ -391,6 +391,10 @@ export class MultiplayerManager {
     }
   }
 
+  leaveCoopSession() {
+    return this.leaveRoom();
+  }
+
   leaveRoom() {
     this.presence.leaveRoom();
     this.sync.stop();

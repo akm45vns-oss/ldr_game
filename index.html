@@ -23,9 +23,235 @@
     <canvas id="game-canvas" width="960" height="540"></canvas>
 
     <!-- =====================================================================
+         MILESTONE 4C: MAIN TITLE SCREEN & HOMEPAGE SYSTEM
+         ===================================================================== -->
+    <div id="title-screen" class="title-screen-overlay">
+      <div class="title-panel">
+
+        <!-- 1. MAIN TITLE VIEW -->
+        <div id="view-title-main" class="title-view active">
+          <div class="title-brand">
+            <div class="title-badge-top">✦ A ROMANTIC FANTASY ADVENTURE ✦</div>
+            <h1 class="title-logo">PIXEL HEARTS</h1>
+            <div class="title-tagline">Whispers of Oakvale • Milestone 4C Edition</div>
+          </div>
+
+          <div class="title-actions">
+            <button class="pixel-btn btn-title-primary" id="btn-title-play">
+              <span class="btn-icon">⚔️</span>
+              <span class="btn-text">Start Adventure</span>
+              <span class="btn-hint">Choose Hero &amp; Mode</span>
+            </button>
+
+            <button class="pixel-btn btn-title-continue disabled" id="btn-title-continue" disabled>
+              <span class="btn-icon">▶</span>
+              <span class="btn-text">Continue Journey</span>
+              <span class="btn-subtext" id="title-continue-summary">No saved adventure found</span>
+            </button>
+
+            <div class="title-button-row">
+              <button class="pixel-btn btn-title-sub" id="btn-title-character">
+                <span>👤 Traveler Profile</span>
+              </button>
+              <button class="pixel-btn btn-title-sub" id="btn-title-modes">
+                <span>🎮 Game Modes</span>
+              </button>
+            </div>
+
+            <div class="title-button-row">
+              <button class="pixel-btn btn-title-sub btn-pink-accent" id="btn-title-couple">
+                <span>♥ Couple Link &amp; Cloud</span>
+              </button>
+              <button class="pixel-btn btn-title-sub" id="btn-title-settings">
+                <span>⚙ Settings &amp; Audio</span>
+              </button>
+            </div>
+
+            <button class="pixel-btn btn-title-sub link-subtle" id="btn-title-credits">
+              <span>📜 About &amp; Credits</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 2. CHARACTER SELECTION VIEW -->
+        <div id="view-char-select" class="title-view hidden">
+          <div class="view-header">
+            <h2 class="view-title">CHOOSE YOUR TRAVELER</h2>
+            <p class="view-subtitle">Select your character profile and customize your traveler name</p>
+          </div>
+
+          <div class="char-cards-grid">
+            <!-- MALE CHARACTER CARD: BHOOT -->
+            <div class="char-card selected" id="card-char-male">
+              <div class="char-badge male">MALE HERO</div>
+              <div class="char-canvas-wrap">
+                <canvas id="canvas-preview-male" width="120" height="130"></canvas>
+              </div>
+              <div class="char-info">
+                <div class="char-input-wrap">
+                  <label for="input-male-name">Traveler Name</label>
+                  <input type="text" id="input-male-name" class="pixel-input char-name-input" value="Bhoot" maxlength="16" placeholder="Enter name..." />
+                </div>
+                <div class="char-trait">Courageous Spirit &amp; Loyal Heart</div>
+                <button class="pixel-btn char-pick-btn primary" id="btn-pick-male">✓ Selected: Bhoot</button>
+              </div>
+            </div>
+
+            <!-- FEMALE CHARACTER CARD: KIDA -->
+            <div class="char-card" id="card-char-female">
+              <div class="char-badge female">FEMALE HERO</div>
+              <div class="char-canvas-wrap">
+                <canvas id="canvas-preview-female" width="120" height="130"></canvas>
+              </div>
+              <div class="char-info">
+                <div class="char-input-wrap">
+                  <label for="input-female-name">Traveler Name</label>
+                  <input type="text" id="input-female-name" class="pixel-input char-name-input" value="Kida" maxlength="16" placeholder="Enter name..." />
+                </div>
+                <div class="char-trait">Radiant Grace &amp; Guiding Light</div>
+                <button class="pixel-btn char-pick-btn" id="btn-pick-female">Select Kida</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="view-footer">
+            <button class="pixel-btn" id="btn-char-back">◀ Back</button>
+            <button class="pixel-btn btn-title-primary" id="btn-char-next">Next: Choose Mode ▶</button>
+          </div>
+        </div>
+
+        <!-- 3. GAME MODE SELECTION VIEW -->
+        <div id="view-game-mode" class="title-view hidden">
+          <div class="view-header">
+            <h2 class="view-title">CHOOSE GAME MODE</h2>
+            <p class="view-subtitle">Journey solo with your companion or connect with your partner live</p>
+          </div>
+
+          <div class="modes-cards-grid">
+            <!-- SOLO ADVENTURE -->
+            <div class="mode-card selected" id="card-mode-solo">
+              <div class="mode-icon-box">🚶</div>
+              <div class="mode-tag solo">OFFLINE PLAY • NO LOGIN</div>
+              <h3 class="mode-title">Solo Adventure</h3>
+              <p class="mode-desc">
+                Explore Oakvale with your loyal celestial companion. Switch between Follow and Hold modes [Key: C] to solve dual-pressure-plate puzzles at your own pace.
+              </p>
+              <div class="mode-features">
+                <span>✓ Local AI Companion</span>
+                <span>✓ 100% Offline Save</span>
+                <span>✓ Dual-Plate Puzzles</span>
+              </div>
+              <div class="mode-selected-pill">✓ SOLO SELECTED</div>
+            </div>
+
+            <!-- ONLINE COUPLE CO-OP -->
+            <div class="mode-card" id="card-mode-coop">
+              <div class="mode-icon-box pink">♥</div>
+              <div class="mode-tag coop">REAL-TIME MULTIPLAYER</div>
+              <h3 class="mode-title">Online Couple Co-Op</h3>
+              <p class="mode-desc">
+                Two linked hearts in the same world in real time. Coordinate movement, stand on dual plates together, and ignite the Starlight Shrine.
+              </p>
+              <div class="mode-status-box" id="mode-coop-status-box">
+                <span id="mode-coop-status-text">Checking online couple status...</span>
+                <button class="pixel-btn btn-pink-accent hidden" id="btn-mode-open-couple" style="margin-top:6px; font-size:11px;">♥ Link Couple</button>
+              </div>
+              <div class="mode-selected-pill">CO-OP SELECTED</div>
+            </div>
+          </div>
+
+          <div class="view-footer">
+            <button class="pixel-btn" id="btn-mode-back">◀ Back</button>
+            <button class="pixel-btn btn-title-primary" id="btn-mode-next">Next: Adventure Type ▶</button>
+          </div>
+        </div>
+
+        <!-- 4. ADVENTURE TYPE SELECTION VIEW -->
+        <div id="view-adventure-type" class="title-view hidden">
+          <div class="view-header">
+            <h2 class="view-title">SELECT ADVENTURE TYPE</h2>
+            <p class="view-subtitle">Choose how you want to experience the Starlight Realm</p>
+          </div>
+
+          <div class="modes-cards-grid">
+            <!-- STORY ADVENTURE -->
+            <div class="mode-card selected" id="card-adv-story">
+              <div class="mode-icon-box gold">📜</div>
+              <div class="mode-tag story">NARRATIVE CAMPAIGN</div>
+              <h3 class="mode-title">Story Adventure</h3>
+              <p class="mode-desc">
+                Follow all 6 Starlight Festival missions. Inspect noticeboards, earn Mira's winch key, repair the Broken Bridge, and light the sacred couple shrine.
+              </p>
+              <div class="mode-features">
+                <span>✓ Full Mission Progression</span>
+                <span>✓ Scrapbook Memory Shards</span>
+                <span>✓ Shared Cloud Saves</span>
+              </div>
+              <div class="mode-selected-pill">✓ STORY SELECTED</div>
+            </div>
+
+            <!-- FREE EXPLORE -->
+            <div class="mode-card" id="card-adv-explore">
+              <div class="mode-icon-box cyan">✨</div>
+              <div class="mode-tag explore">OPEN ROAM &amp; DISCOVERY</div>
+              <h3 class="mode-title">Free Explore</h3>
+              <p class="mode-desc">
+                Freely wander through unlocked zones, discover scenic rooftops, and collect stray crystals without mandatory story objectives. Story missions remain safe.
+              </p>
+              <div class="mode-features">
+                <span>✓ Relaxed Non-Blocking Roam</span>
+                <span>✓ Safe Story Save Protection</span>
+                <span>✓ Crystal Collection</span>
+              </div>
+              <div class="mode-selected-pill">EXPLORE SELECTED</div>
+            </div>
+          </div>
+
+          <div class="view-footer">
+            <button class="pixel-btn" id="btn-adv-back">◀ Back</button>
+            <button class="pixel-btn btn-title-primary" id="btn-start-game">🚀 Enter Starlight Realm ▶</button>
+          </div>
+        </div>
+
+        <!-- 5. ABOUT & CREDITS VIEW -->
+        <div id="view-credits" class="title-view hidden">
+          <div class="view-header">
+            <h2 class="view-title">ABOUT PIXEL HEARTS</h2>
+            <p class="view-subtitle">A romantic fantasy co-op platformer created for couples</p>
+          </div>
+          <div class="credits-content">
+            <p><strong>Pixel Hearts</strong> is designed to bring partners closer across distance through shared exploration, tactile collaboration, and heartwarming milestones.</p>
+            <div class="credits-grid">
+              <div class="credits-item">
+                <span class="lbl">Engine</span>
+                <strong>HTML5 Canvas 2D &amp; Vite Modular Architecture</strong>
+              </div>
+              <div class="credits-item">
+                <span class="lbl">Multiplayer</span>
+                <strong>Firebase RTDB &amp; 60 FPS Interpolation</strong>
+              </div>
+              <div class="credits-item">
+                <span class="lbl">Progression</span>
+                <strong>Cloud Firestore Shared Saves &amp; Revision Control</strong>
+              </div>
+              <div class="credits-item">
+                <span class="lbl">Audio</span>
+                <strong>Web Audio API Procedural Synth &amp; Chimes</strong>
+              </div>
+            </div>
+          </div>
+          <div class="view-footer">
+            <button class="pixel-btn" id="btn-credits-back">◀ Back to Title</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- =====================================================================
          TOP SCI-FANTASY GLASSMORPHIC HUD (Matches Reference Design)
          ===================================================================== -->
-    <header id="hud-top">
+    <header id="hud-top" class="hidden">
       <!-- LEFT: Zone, Duo Badge, Collectibles, Bridge & Quest Progress Card -->
       <div class="hud-glass-pro hud-status-card" id="hud-status-card">
         <div class="hud-top-line">
@@ -34,9 +260,9 @@
             <span class="zone-banner" id="hud-zone">ZONE 1: OAKVALE VILLAGE</span>
           </div>
           <div class="couple-badge">
-            <span style="color:#e2e8f0;">AYUSH</span>
+            <span id="hud-player-name" style="color:#e2e8f0;">BHOOT</span>
             <span class="heart-icon">♥</span>
-            <span id="hud-partner-name" style="color:#f9a8d4;">AANYA</span>
+            <span id="hud-partner-name" style="color:#f9a8d4;">KIDA</span>
             <span id="hud-companion-mode" style="font-size:9.5px; color:#f472b6;">[FOLLOWING]</span>
           </div>
         </div>
@@ -98,6 +324,7 @@
           <button class="pixel-btn btn-gold-accent" id="btn-weather" title="Cycle Weather">✨ Weather: Fireflies</button>
           <button class="pixel-btn btn-pink-accent" id="btn-companion" title="Toggle Partner Hold/Follow (Key: C)">🚶 Partner: Follow</button>
           <button class="pixel-btn" id="btn-settings" title="Audio, Touch Controls & Partner Name (Key: P)">⚙ Audio &amp; Settings</button>
+          <button class="pixel-btn btn-gold-accent" id="btn-menu-title" title="Save &amp; Return to Main Menu">🏠 Title Screen</button>
           <button class="pixel-btn btn-danger" id="btn-reset" title="Respawn at Oakvale or Reset Progress">↻ Reset</button>
         </div>
       </nav>

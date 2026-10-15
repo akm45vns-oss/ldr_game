@@ -62,6 +62,15 @@ export class CoupleManager {
     this.listeners = new Set();
   }
 
+  getCoupleState() {
+    return {
+      isLinked: Boolean(this.isLinked),
+      coupleId: this.coupleId,
+      members: this.members,
+      partnerProfile: this.partnerProfile
+    };
+  }
+
   onChange(callback) {
     this.listeners.add(callback);
     return () => this.listeners.delete(callback);

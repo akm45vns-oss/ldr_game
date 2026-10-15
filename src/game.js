@@ -26,6 +26,8 @@ import { AuthModal } from './ui/authModal.js';
 import { CoupleModal } from './ui/coupleModal.js';
 import { MultiplayerManager } from './systems/multiplayerManager.js';
 import { onAuthChange } from './firebase/auth.js';
+import { TitleScreenController } from './ui/titleScreen.js';
+import { migrateProfileNames } from './core/profile.js';
 
 export class PixelHeartsGame {
   constructor() {
@@ -45,7 +47,20 @@ export class PixelHeartsGame {
     this.camera = new Camera2D();
     this.sound = new SoundEngine();
 
-    this.partnerName = safeStorageGet("ph_partner_name") || "Aanya";
+    this.gameState = "menu"; // "menu" | "playing"
+
+    // Milestone 4C Profile & Mode State
+    this.selectedCharacter = safeStorageGet("ph_character_gender", "male");
+    const migrated = migrateProfileNames(
+      safeStorageGet("ph_player_name", null),
+      safeStorageGet("ph_partner_name", null),
+      this.selectedCharacter
+    );
+    this.playerName = migrated.playerName;
+    this.partnerName = migrated.partnerName;
+    this.adventureMode = safeStorageGet("ph_adventure_type", "story");
+    this.gameMode = safeStorageGet("ph_game_mode", "solo");
+
     this.companionHoldMode = false;
     this.weatherMode = "fireflies";
     this.effectsQuality = safeStorageGet("ph_effects_quality", "high");
@@ -54,7 +69,8 @@ export class PixelHeartsGame {
     this.lastZoneText = "";
     this.debugMode = false;
 
-    this.ayush = new Actor("Ayush", 8 * TILE_SIZE, 12 * TILE_SIZE, this.ayushFrames);
+    this.ayush = new Actor(this.playerName, 8 * TILE_SIZE, 12 * TILE_SIZE, this.ayushFrames);
+    this.player = this.ayush;
     this.partner = new Actor(this.partnerName, 6 * TILE_SIZE, 12 * TILE_SIZE, this.partnerFrames);
 
     this.questItems = new Set();
@@ -80,16 +96,21 @@ export class PixelHeartsGame {
     this.viewport = new ViewportManager(this);
     this.renderer = new GameRenderer(this.canvas);
     this.couple = new CoupleManager(this);
+    this.coupleManager = this.couple;
     this.cloudSave = new CloudSaveManager(this, this.couple);
     this.authModal = new AuthModal(this);
     this.coupleModal = new CoupleModal(this);
     this.multiplayer = new MultiplayerManager(this);
-
-    const loadResult = SaveManager.loadGame(this);
+    this.titleScreen = new TitleScreenController(this);
 
     this.modals.bindUI();
     this.viewport.bind();
     this.cloudSave.init();
+    if (SaveManager.hasValidSave()) {
+      SaveManager.loadGame(this);
+    }
+    this.titleScreen.init();
+    this.titleScreen.show();
 
     // Hook Multiplayer state updates to HUD status pill
     this.multiplayer.onChange((mp) => {
@@ -116,26 +137,136 @@ export class PixelHeartsGame {
       if (!user && this.multiplayer) {
         this.multiplayer.leaveRoom();
       }
+      if (this.titleScreen) {
+        this.titleScreen.updateOnlineStatusDisplay();
+      }
     });
-    this.updateCompanionUI();
-    this.updateStatsUI();
-    this.updateQuestHUD();
+
     this.updateViewportLayout();
     this.registerServiceWorker();
 
-    if (!loadResult.loaded || !this.storyFlags.introShown) {
+    this.lastTime = performance.now();
+    requestAnimationFrame((t) => this.loop(t));
+  }
+
+  startGameplay(options = {}) {
+    const isContinue = Boolean(options.isContinue);
+
+    if (isContinue) {
+      const loadResult = SaveManager.loadGame(this);
+      if (loadResult.loaded) {
+        this.showQuestToast("SAVE LOADED ♥", `Welcome back, ${this.playerName} & ${this.partnerName}!`);
+      }
+    } else {
+      if (options.character) {
+        this.selectedCharacter = options.character;
+        safeStorageSet("ph_character_gender", this.selectedCharacter);
+      }
+      if (options.playerName) {
+        this.playerName = options.playerName;
+        safeStorageSet("ph_player_name", this.playerName);
+      }
+      if (options.partnerName) {
+        this.partnerName = options.partnerName;
+        safeStorageSet("ph_partner_name", this.partnerName);
+      }
+      if (options.gameMode) {
+        this.gameMode = options.gameMode;
+        safeStorageSet("ph_game_mode", this.gameMode);
+      }
+      if (options.adventureMode) {
+        this.adventureMode = options.adventureMode;
+        safeStorageSet("ph_adventure_type", this.adventureMode);
+      }
+
+      const playerActor = this.player || this.ayush;
+      if (playerActor) {
+        playerActor.name = this.playerName;
+        playerActor.x = 8 * TILE_SIZE;
+        playerActor.y = 12 * TILE_SIZE;
+        playerActor.vx = 0;
+        playerActor.vy = 0;
+      }
+      if (this.partner) {
+        this.partner.name = this.partnerName;
+        this.partner.x = 6 * TILE_SIZE;
+        this.partner.y = 12 * TILE_SIZE;
+      }
+
+      // Reset level collectibles and mission progress for new game
+      for (const c of this.world.collectibles) {
+        c.collected = false;
+      }
+      this.questItems.clear();
+      this.unlockedMemories.clear();
+      this.storyFlags = {
+        signRead: false,
+        miraMet: false,
+        plateActivatedOnce: false,
+        bridgeUnlockedPermanently: false,
+        shrineLit: false,
+        introShown: false
+      };
+      this.world.bridgeUnlockedPermanently = false;
+      this.world.shrineLit = false;
+      this.world.platePressed = false;
+      this.missionManager.resetToDefaults();
+      SaveManager.saveGame(this);
+    }
+
+    this.gameState = "playing";
+    if (this.titleScreen) {
+      this.titleScreen.hide();
+    }
+
+    // Update HUD badges and elements
+    const pNameEl = document.getElementById("hud-player-name");
+    if (pNameEl) pNameEl.textContent = this.playerName.toUpperCase();
+    const partNameEl = document.getElementById("hud-partner-name");
+    if (partNameEl) partNameEl.textContent = this.partnerName.toUpperCase();
+
+    this.updateStatsUI();
+    this.updateQuestHUD();
+    this.updateCompanionUI();
+
+    // Mode handling: Co-Op vs Solo
+    if (this.gameMode === "coop") {
+      if (this.couple && this.couple.coupleId && this.couple.currentUser) {
+        const partnerUid = this.couple.partnerUid || "partner_placeholder";
+        this.multiplayer.joinRoom(this.couple.coupleId, this.couple.currentUser.uid, partnerUid);
+      } else {
+        this.showQuestToast("CO-OP MODE", "Please link your couple account to connect live!");
+        if (this.modals) this.modals.openModal("couple-modal");
+      }
+    } else {
+      if (this.multiplayer) {
+        this.multiplayer.playSolo();
+      }
+    }
+
+    // Trigger prologue if story mode and not yet seen
+    if (!isContinue && this.adventureMode === "story" && !this.storyFlags.introShown) {
       this.storyFlags.introShown = true;
       this.dialogue.open(
         "STARLIGHT FESTIVAL PROLOGUE",
         [
-          `Tonight is Oakvale's annual Starlight Festival! Ayush and ${this.partnerName} have arrived in the village to light the ancient Starlight Shrine together.`,
+          `Tonight is Oakvale's annual Starlight Festival! ${this.playerName} and ${this.partnerName} have arrived in the village to light the ancient Starlight Shrine together.`,
           `Start by walking right to inspect the Oakvale Noticeboard [col 12] and pressing [B / ACT] (or E on keyboard) to begin Mission 1.`
         ]
       );
       SaveManager.saveGame(this);
-    } else {
-      this.dialogue.close(false);
-      this.showQuestToast("SAVE LOADED ♥", `Welcome back, Ayush & ${this.partnerName}!`);
+    }
+  }
+
+  returnToTitleScreen() {
+    if (this.gameState === "menu") return;
+    SaveManager.saveGame(this);
+    if (this.multiplayer && this.multiplayer.isCoopActive) {
+      this.multiplayer.leaveRoom();
+    }
+    this.gameState = "menu";
+    if (this.titleScreen) {
+      this.titleScreen.show();
     }
 
     this.lastTime = performance.now();
@@ -149,14 +280,14 @@ export class PixelHeartsGame {
         title: "Memory #1: First Coffee in Oakvale",
         location: "Oakvale Village Rooftop (Shard #1)",
         hint: "Climb the monolith ledges above eastern Oakvale Village (col 54).",
-        text: `Ayush still remembers how nervous he was waiting by the village lantern post—until ${this.partnerName} smiled and made the whole evening glow.`
+        text: `${this.playerName} still remembers how nervous they were waiting by the village lantern post—until ${this.partnerName} smiled and made the whole evening glow.`
       },
       {
         id: "mem_2",
         title: "Memory #2: Secret Under the Canopy",
         location: "Whispering Forest High Branch (Shard #2)",
         hint: "Leap across the mossy forest canopy platforms in Zone 2 (col 95).",
-        text: `Even when the forest trails grew steep, Ayush and ${this.partnerName} never rushed ahead alone. Every climb feels lighter side by side.`
+        text: `Even when the forest trails grew steep, ${this.playerName} and ${this.partnerName} never rushed ahead alone. Every climb feels lighter side by side.`
       },
       {
         id: "mem_3",
@@ -170,14 +301,14 @@ export class PixelHeartsGame {
         title: "Memory #4: Mira's Twin-Flame Blessing",
         location: "Lantern Keeper's Sanctuary (Mission 4)",
         hint: "Speak with Lantern Keeper Mira outside her sanctuary in Oakvale (col 44).",
-        text: `Lantern Keeper Mira handed ${this.partnerName} and Ayush a twin-flame charm: "A bridge isn't held by stone alone, but by trust between both banks."`
+        text: `Lantern Keeper Mira handed ${this.partnerName} and ${this.playerName} a twin-flame charm: "A bridge isn't held by stone alone, but by trust between both banks."`
       },
       {
         id: "mem_5",
         title: "Memory #5: Starlight Shrine Promise",
         location: "Starlight Couple Shrine Summit (Mission 6)",
         hint: "Repair the Broken Bridge and ignite the Starlight Shrine together (col 190).",
-        text: `Under a sky full of lantern fireflies, Ayush and ${this.partnerName} lit the Starlight Beacon together—turning a quiet village evening into a forever memory.`
+        text: `Under a sky full of lantern fireflies, ${this.playerName} and ${this.partnerName} lit the Starlight Beacon together—turning a quiet village evening into a forever memory.`
       }
     ];
   }
@@ -419,7 +550,7 @@ export class PixelHeartsGame {
       this.dialogue.open(
         `${this.partnerName.toUpperCase()} — HOLDING PLATE`,
         [
-          `"I've got the West Pressure Plate held down, Ayush! The Starlight Bridge is glowing—cross the ravine and lock the East Bank Winch!"`
+          `"I've got the West Pressure Plate held down, ${this.playerName}! The Starlight Bridge is glowing—cross the ravine and lock the East Bank Winch!"`
         ]
       );
     }
@@ -434,12 +565,12 @@ export class PixelHeartsGame {
           "OAKVALE NOTICEBOARD",
           [
             `"Welcome to Oakvale's Starlight Festival! Trail Guide: Follow the lantern path East through Whispering Forest to reach the Starlight Couple Shrine."`,
-            `${this.partnerName}: "Look, Ayush! Someone pinned a trail note here—it says Lantern Keeper Mira at the eastern sanctuary [col 44] has the key to the ravine bridge winch!"`
+            `${this.partnerName}: "Look, ${this.playerName}! Someone pinned a trail note here—it says Lantern Keeper Mira at the eastern sanctuary [col 44] has the key to the ravine bridge winch!"`
           ],
           () => {
             this.storyFlags.signRead = true;
             this.grantQuestItem("oakvale_map");
-            this.missionManager.setObjectiveProgress("m1_explore_oakvale", "read_village_sign", 1);
+            this.setMissionProgressSafe("m1_explore_oakvale", "read_village_sign", 1);
             SaveManager.saveGame(this);
           }
         );
@@ -456,22 +587,22 @@ export class PixelHeartsGame {
 
     if (obj.id === "elder_cottage") {
       if (this.missionManager.getMission("m4_find_lantern_keeper").status === "locked") {
-        this.missionManager.unlockMission("m4_find_lantern_keeper", true);
+        this.unlockMissionSafe("m4_find_lantern_keeper", true);
       }
 
       if (!this.storyFlags.miraMet) {
         this.dialogue.open(
           "LANTERN KEEPER MIRA",
           [
-            `"Blessings on your evening, Ayush and ${this.partnerName}! Heading up to the Starlight Shrine? Last night's gale snapped the old rope bridge across the ravine."`,
-            `"Take this Starlight Winch Key and Twin-Flame Lantern Charm. When you reach the West Bank Plate [col 145], have ${this.partnerName} hold the plate ([C] or ♥ STAY/GO) while Ayush crosses the astral span and locks the East Winch!"`
+            `"Blessings on your evening, ${this.playerName} and ${this.partnerName}! Heading up to the Starlight Shrine? Last night's gale snapped the old rope bridge across the ravine."`,
+            `"Take this Starlight Winch Key and Twin-Flame Lantern Charm. When you reach the West Bank Plate [col 145], have ${this.partnerName} hold the plate ([C] or ♥ STAY/GO) while ${this.playerName} crosses the astral span and locks the East Winch!"`
           ],
           () => {
             this.storyFlags.miraMet = true;
             this.grantQuestItem("winch_key");
             this.grantQuestItem("lantern_charm");
             this.unlockScrapbookMemory("mem_4");
-            this.missionManager.setObjectiveProgress("m4_find_lantern_keeper", "talk_to_mira", 1);
+            this.setMissionProgressSafe("m4_find_lantern_keeper", "talk_to_mira", 1);
             SaveManager.saveGame(this);
           }
         );
@@ -540,13 +671,13 @@ export class PixelHeartsGame {
       }
 
       if (this.missionManager.getMission("m5_repair_bridge").status === "locked") {
-        this.missionManager.unlockMission("m5_repair_bridge", true);
+        this.unlockMissionSafe("m5_repair_bridge", true);
       }
 
       this.dialogue.open(
         "BRIDGE REPAIRED!",
         [
-          `Ayush engaged the East Bank Winch! The Astral Starlight Bridge is now permanently anchored across the ravine.`,
+          `${this.playerName} engaged the East Bank Winch! The Astral Starlight Bridge is now permanently anchored across the ravine.`,
           `${this.partnerName} switches back to Follow mode and glides across the glowing span to rejoin you!`
         ],
         () => {
@@ -557,8 +688,8 @@ export class PixelHeartsGame {
           this.updateCompanionUI();
           this.updateStatsUI();
           this.spawnHeartBurst(obj.x, obj.y - 10);
-          this.missionManager.setObjectiveProgress("m5_repair_bridge", "hold_west_plate", 1, true);
-          this.missionManager.setObjectiveProgress("m5_repair_bridge", "lock_east_winch", 1);
+          this.setMissionProgressSafe("m5_repair_bridge", "hold_west_plate", 1, true);
+          this.setMissionProgressSafe("m5_repair_bridge", "lock_east_winch", 1);
           SaveManager.saveGame(this);
           if (this.multiplayer) {
             this.multiplayer.broadcastEvent("bridge_repaired", {});
@@ -597,13 +728,13 @@ export class PixelHeartsGame {
       const memories = this.world.collectibles.filter((c) => c.type === "memory" && c.collected).length;
 
       if (this.missionManager.getMission("m6_light_shrine").status === "locked") {
-        this.missionManager.unlockMission("m6_light_shrine", true);
+        this.unlockMissionSafe("m6_light_shrine", true);
       }
 
       this.dialogue.open(
-        `♥ STARLIGHT SHRINE IGNITED — AYUSH & ${this.partnerName.toUpperCase()} ♥`,
+        `♥ STARLIGHT SHRINE IGNITED — ${this.playerName.toUpperCase()} & ${this.partnerName.toUpperCase()} ♥`,
         [
-          `Hand in hand, Ayush and ${this.partnerName} raise the Twin-Flame Charm. A pillar of rose-gold and cyan starlight arcs into the night sky above Oakvale!`,
+          `Hand in hand, ${this.playerName} and ${this.partnerName} raise the Twin-Flame Charm. A pillar of rose-gold and cyan starlight arcs into the night sky above Oakvale!`,
           `Milestone 2 Story Complete! Heart Crystals: ${crystals}/8 | Memory Shards: ${memories}/3 | Scrapbook Memories Unlocked: ${Math.min(5, this.unlockedMemories.size + 1)}/5.`
         ],
         () => {
@@ -614,7 +745,7 @@ export class PixelHeartsGame {
           this.unlockScrapbookMemory("mem_5");
           this.spawnHeartBurst(this.ayush.x, this.ayush.y - 8);
           this.spawnHeartBurst(this.partner.x, this.partner.y - 8);
-          this.missionManager.setObjectiveProgress("m6_light_shrine", "ignite_shrine_together", 1);
+          this.setMissionProgressSafe("m6_light_shrine", "ignite_shrine_together", 1);
           SaveManager.saveGame(this);
           if (this.multiplayer) {
             this.multiplayer.broadcastEvent("shrine_ignited", {});
@@ -624,7 +755,27 @@ export class PixelHeartsGame {
     }
   }
 
+  setMissionProgressSafe(missionId, objKey, amount, absolute = false) {
+    if (this.adventureMode === "explore") return;
+    if (this.missionManager) {
+      this.missionManager.setObjectiveProgress(missionId, objKey, amount, absolute);
+    }
+  }
+
+  unlockMissionSafe(missionId, silent = false) {
+    if (this.adventureMode === "explore") return;
+    if (this.missionManager) {
+      this.missionManager.unlockMission(missionId, silent);
+    }
+  }
+
   update(dt) {
+    if (this.gameState === "menu") {
+      this.updateParticles(dt);
+      this.input.endFrame();
+      return;
+    }
+
     if (this.input.consumeKey("KeyP")) {
       const modal = document.getElementById("settings-modal");
       const isHidden = modal.classList.contains("hidden");
@@ -799,10 +950,12 @@ export class PixelHeartsGame {
 
     if (this.world.platePressed && !this.storyFlags.plateActivatedOnce) {
       this.storyFlags.plateActivatedOnce = true;
-      if (this.missionManager.getMission("m5_repair_bridge").status === "locked") {
-        this.missionManager.unlockMission("m5_repair_bridge", true);
+      if (this.adventureMode !== "explore") {
+        if (this.missionManager.getMission("m5_repair_bridge").status === "locked") {
+          this.missionManager.unlockMission("m5_repair_bridge", true);
+        }
+        this.missionManager.setObjectiveProgress("m5_repair_bridge", "hold_west_plate", 1);
       }
-      this.missionManager.setObjectiveProgress("m5_repair_bridge", "hold_west_plate", 1);
       SaveManager.saveGame(this);
     }
     if (wasPlatePressed !== this.world.platePressed) {
@@ -828,16 +981,20 @@ export class PixelHeartsGame {
         }
 
         if (item.type === "crystal") {
-          if (this.missionManager.getMission("m2_gather_crystals").status === "locked") {
-            this.missionManager.unlockMission("m2_gather_crystals", true);
+          if (this.adventureMode !== "explore") {
+            if (this.missionManager.getMission("m2_gather_crystals").status === "locked") {
+              this.missionManager.unlockMission("m2_gather_crystals", true);
+            }
+            this.missionManager.syncCollectibleCounts(false);
           }
-          this.missionManager.syncCollectibleCounts(false);
         } else if (item.type === "memory") {
-          if (this.missionManager.getMission("m3_recover_memories").status === "locked") {
-            this.missionManager.unlockMission("m3_recover_memories", true);
+          if (this.adventureMode !== "explore") {
+            if (this.missionManager.getMission("m3_recover_memories").status === "locked") {
+              this.missionManager.unlockMission("m3_recover_memories", true);
+            }
+            this.missionManager.syncCollectibleCounts(false);
           }
           this.unlockScrapbookMemory(item.memoryId, true);
-          this.missionManager.syncCollectibleCounts(false);
           this.dialogue.open(item.title, [item.text]);
         }
 

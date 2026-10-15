@@ -5,6 +5,11 @@ export class MissionManager {
     this.missions = this.createDefaultMissions();
   }
 
+  resetToDefaults() {
+    this.missions = this.createDefaultMissions();
+    return this.missions;
+  }
+
   createDefaultMissions() {
     return [
       {

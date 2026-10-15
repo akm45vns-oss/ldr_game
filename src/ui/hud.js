@@ -5,6 +5,7 @@ export class HUDController {
     this.toastTimer = null;
 
     this.zoneEl = document.getElementById("hud-zone");
+    this.playerNameLabel = document.getElementById("hud-player-name");
     this.partnerLabel = document.getElementById("hud-partner-name");
     this.companionModeEl = document.getElementById("hud-companion-mode");
     this.companionBtn = document.getElementById("btn-companion");
@@ -38,6 +39,15 @@ export class HUDController {
     this.lastZone = "";
   }
 
+  updateNamesUI() {
+    if (this.playerNameLabel) {
+      this.playerNameLabel.textContent = this.game.playerName || "Bhoot";
+    }
+    if (this.partnerLabel) {
+      this.partnerLabel.textContent = this.game.partnerName || "Kida";
+    }
+  }
+
   updateCoopPill(status = "solo", label = "♥ Solo", tooltip = "Play Together / Solo Mode") {
     if (!this.coopPill) return;
     this.coopPill.className = `pixel-btn coop-pill-btn ${status}`;
@@ -68,6 +78,14 @@ export class HUDController {
   updateQuestHUD() {
     if (!this.badgeEl || !this.questTextEl) return;
 
+    if (this.game.adventureMode === "explore") {
+      this.badgeEl.textContent = `FREE EXPLORE`;
+      this.questTextEl.textContent = `Open World Discovery — explore at your own pace`;
+      if (this.progEl) this.progEl.textContent = `Free`;
+      if (this.barEl) this.barEl.style.width = "100%";
+      return;
+    }
+
     const completedCount = this.game.missionManager.missions.filter((m) => m.status === "completed").length;
     const totalCount = this.game.missionManager.missions.length;
     const activeMission = this.game.missionManager.getPrimaryTrackedMission();
@@ -90,6 +108,7 @@ export class HUDController {
   }
 
   updateStatsUI() {
+    this.updateNamesUI();
     const crystals = this.game.world.collectibles.filter((c) => c.type === "crystal" && c.collected).length;
     const memories = this.game.world.collectibles.filter((c) => c.type === "memory" && c.collected).length;
     if (this.crystalsEl) this.crystalsEl.textContent = `${crystals} / 8`;

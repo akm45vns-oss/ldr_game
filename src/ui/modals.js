@@ -263,6 +263,16 @@ export class ModalController {
       });
     }
 
+    const returnTitleBtn = document.getElementById("btn-menu-title");
+    if (returnTitleBtn) {
+      returnTitleBtn.addEventListener("click", () => {
+        this.closeAllModals();
+        closeMenu();
+        if (game.sound) game.sound.playMenuClick();
+        game.returnToTitleScreen();
+      });
+    }
+
     const companionBtn = document.getElementById("btn-companion");
     if (companionBtn) {
       companionBtn.addEventListener("click", () => {

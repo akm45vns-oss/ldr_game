@@ -9,6 +9,7 @@ export const WORLD_WIDTH = LEVEL_COLS * TILE_SIZE;
 export const WORLD_HEIGHT = LEVEL_ROWS * TILE_SIZE;
 
 export const SAVE_STORAGE_KEY = "ph_save_v2";
+export const LEGACY_SAVE_STORAGE_KEY = "ph_save_v1";
 export const SAVE_SCHEMA_VERSION = 2;
 
 export const PHYSICS = {
