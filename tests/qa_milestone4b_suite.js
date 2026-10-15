@@ -46,6 +46,11 @@ if (rules) {
     roomRules ? roomRules['.read'] : "missing"
   );
 
+  assert("Members mirror write strictly forbidden to clients (.write: false)",
+    roomRules && roomRules.members && roomRules.members['.write'] === false,
+    "members.write === false"
+  );
+
   const playerRules = roomRules && roomRules.players ? roomRules.players['$uid'] : null;
   assert("Player writes require auth matching player UID",
     Boolean(playerRules && playerRules['.write'] && playerRules['.write'].includes("auth.uid === $uid")),

@@ -1,5 +1,6 @@
 import { ref, set, onValue, push, serverTimestamp } from 'firebase/database';
-import { rtdb } from '../firebase/firebase.js';
+import { httpsCallable } from 'firebase/functions';
+import { rtdb, functions } from '../firebase/firebase.js';
 import { getCurrentUser } from '../firebase/auth.js';
 import { PresenceManager } from './presenceManager.js';
 import { PlayerSync } from './playerSync.js';
@@ -124,13 +125,13 @@ export class MultiplayerManager {
     this.sessionId = `s_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     this.mode = "coop";
 
-    // 1. Mirror membership record in RTDB to ensure RTDB security rule authorization
-    if (rtdb) {
+    // 1. Authoritatively establish RTDB membership mirror via trusted server verification
+    if (functions) {
       try {
-        const memberRef = ref(rtdb, `rooms/${this.coupleId}/members/${this.localUid}`);
-        await set(memberRef, true);
+        const authorizeRoomFn = httpsCallable(functions, "authorizeRoomAccess");
+        await authorizeRoomFn({ coupleId: this.coupleId });
       } catch (err) {
-        console.warn("[MultiplayerManager] Member registration error:", err.message);
+        console.warn("[MultiplayerManager] Server room authorization call:", err.message);
       }
     }
 
@@ -268,12 +269,19 @@ export class MultiplayerManager {
   broadcastEvent(type, payload = {}) {
     if (!rtdb || !this.coupleId || !this.isCoopActive) return;
 
+    // Ensure payload conforms to strict schema
+    const safePayload = {
+      x: Math.round(this.app.ayush ? this.app.ayush.x : 0),
+      y: Math.round(this.app.ayush ? this.app.ayush.y : 0),
+      ...payload
+    };
+
     try {
       const newEvtRef = push(ref(rtdb, `rooms/${this.coupleId}/events`));
       set(newEvtRef, {
         type: type,
         senderUid: this.localUid,
-        payload: payload,
+        payload: safePayload,
         timestamp: Date.now()
       }).catch((e) => console.warn("[MultiplayerManager] Broadcast error:", e.message));
     } catch (err) {

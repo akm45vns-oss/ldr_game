@@ -90,6 +90,12 @@ exports.createCouple = functions.https.onCall(async (data, context) => {
 
   await batch.commit();
 
+  try {
+    await admin.database().ref(`rooms/${coupleId}/members`).set({ [uid]: true });
+  } catch (rtdbErr) {
+    console.warn("[createCouple] RTDB mirror note:", rtdbErr.message);
+  }
+
   return { success: true, coupleId: coupleId };
 });
 
@@ -284,12 +290,24 @@ exports.redeemCoupleInvite = functions.https.onCall(async (data, context) => {
       coupleId: coupleId,
       partnerUid: members[0] || null
     };
+  }).then(async (res) => {
+    // Authoritative RTDB mirror update using Admin SDK
+    try {
+      const rtdb = admin.database();
+      await rtdb.ref(`rooms/${res.coupleId}/members`).update({
+        [uid]: true,
+        [res.partnerUid]: true
+      });
+    } catch (e) {
+      console.warn("[redeemCoupleInvite] RTDB mirror note:", e.message);
+    }
+    return res;
   });
 });
 
 /**
  * leaveCouple Callable Function
- * Safely unlinks a player from their couple without deleting shared history.
+ * Safely unlinks a player from their couple and authoritatively revokes room access.
  */
 exports.leaveCouple = functions.https.onCall(async (data, context) => {
   if (!context.auth || !context.auth.uid) {
@@ -322,7 +340,90 @@ exports.leaveCouple = functions.https.onCall(async (data, context) => {
     });
   });
 
+  // Authoritative RTDB mirror revocation using Admin SDK
+  try {
+    const rtdb = admin.database();
+    await rtdb.ref(`rooms/${coupleId}/members/${uid}`).remove();
+    await rtdb.ref(`rooms/${coupleId}/players/${uid}`).remove();
+    await rtdb.ref(`rooms/${coupleId}/presence/${uid}`).remove();
+  } catch (rtdbErr) {
+    console.warn("[leaveCouple] RTDB revocation note:", rtdbErr.message);
+  }
+
   return { success: true };
+});
+
+/**
+ * authorizeRoomAccess Callable Function
+ * Trusted server verification of couple membership before establishing RTDB room mirror.
+ * Verifies caller is in canonical Firestore couple with members cap <= 2.
+ */
+exports.authorizeRoomAccess = functions.https.onCall(async (data, context) => {
+  if (!context.auth || !context.auth.uid) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "You must be signed in to enter a multiplayer couple room."
+    );
+  }
+
+  const uid = context.auth.uid;
+  const coupleId = data && data.coupleId ? String(data.coupleId).trim() : "";
+
+  if (!coupleId || coupleId.length < 3) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "A valid coupleId is required."
+    );
+  }
+
+  // Canonical Firestore couple check
+  const coupleRef = db.collection("couples").doc(coupleId);
+  const coupleSnap = await coupleRef.get();
+
+  if (!coupleSnap.exists) {
+    throw new functions.https.HttpsError(
+      "not-found",
+      "Couple record does not exist."
+    );
+  }
+
+  const coupleData = coupleSnap.data();
+  const members = coupleData.members || [];
+
+  if (!members.includes(uid)) {
+    throw new functions.https.HttpsError(
+      "permission-denied",
+      "Access denied: You are not an authorized member of this couple."
+    );
+  }
+
+  if (members.length > 2) {
+    throw new functions.https.HttpsError(
+      "failed-precondition",
+      "This couple exceeds the maximum authorized membership limit (2)."
+    );
+  }
+
+  // Authoritatively set RTDB membership mirror using Admin SDK
+  try {
+    const membersObj = {};
+    members.forEach((m) => {
+      membersObj[m] = true;
+    });
+    await admin.database().ref(`rooms/${coupleId}/members`).set(membersObj);
+  } catch (err) {
+    console.error("[authorizeRoomAccess] RTDB mirror error:", err);
+    throw new functions.https.HttpsError(
+      "internal",
+      "Failed to synchronize room authorization mirror."
+    );
+  }
+
+  return {
+    success: true,
+    coupleId: coupleId,
+    authorized: true
+  };
 });
 
 /**
