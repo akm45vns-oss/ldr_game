@@ -22,6 +22,7 @@ export class MultiplayerManager {
     this.remoteActor = null;
     this.isPartnerInSameZone = false;
     this.remotePlateActive = false;
+    this.localPlatePressed = false;
 
     this.eventsRef = null;
     this.coopStateRef = null;
@@ -382,12 +383,14 @@ export class MultiplayerManager {
       Math.abs(this.remoteActor.x - plateX) < 22 &&
       this.remoteActor.onGround;
 
+    if (ayushOnPlate !== this.localPlatePressed) {
+      this.localPlatePressed = ayushOnPlate;
+      this.setPressurePlateCoop(ayushOnPlate);
+    }
+
     const platePressed = ayushOnPlate || remotePartnerOnPlate || this.remotePlateActive;
     if (platePressed !== this.app.world.platePressed) {
       this.app.world.platePressed = platePressed || this.app.world.bridgeUnlockedPermanently;
-      if (ayushOnPlate) {
-        this.setPressurePlateCoop(true);
-      }
     }
   }
 
@@ -417,6 +420,11 @@ export class MultiplayerManager {
     // Seamlessly restore local AI companion
     if (this.app.partner) {
       this.app.partner.visible = true;
+    }
+
+    if (this.localPlatePressed) {
+      this.setPressurePlateCoop(false);
+      this.localPlatePressed = false;
     }
 
     this.remotePlateActive = false;

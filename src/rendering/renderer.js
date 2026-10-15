@@ -16,6 +16,37 @@ export class GameRenderer {
     this.cachedSkyGrad = null;
     this.cachedMistGrad = null;
     this.cachedCliffGrad = null;
+    this.cachedFarMtnGrad = null;
+    this.cachedMidGrad = null;
+
+    // Pre-bake collectible halo canvases (zero per-frame gradient heap allocation)
+    this.crystalHaloCanvas = typeof document !== "undefined" ? document.createElement("canvas") : null;
+    if (this.crystalHaloCanvas) {
+      this.crystalHaloCanvas.width = 24;
+      this.crystalHaloCanvas.height = 24;
+      const cCtx = this.crystalHaloCanvas.getContext("2d");
+      if (cCtx) {
+        const cHalo = cCtx.createRadialGradient(12, 12, 1, 12, 12, 11);
+        cHalo.addColorStop(0, "rgba(56, 189, 248, 0.55)");
+        cHalo.addColorStop(1, "rgba(56, 189, 248, 0)");
+        cCtx.fillStyle = cHalo;
+        cCtx.fillRect(0, 0, 24, 24);
+      }
+    }
+
+    this.shardHaloCanvas = typeof document !== "undefined" ? document.createElement("canvas") : null;
+    if (this.shardHaloCanvas) {
+      this.shardHaloCanvas.width = 28;
+      this.shardHaloCanvas.height = 28;
+      const sCtx = this.shardHaloCanvas.getContext("2d");
+      if (sCtx) {
+        const mHalo = sCtx.createRadialGradient(14, 14, 1, 14, 14, 13);
+        mHalo.addColorStop(0, "rgba(251, 191, 36, 0.65)");
+        mHalo.addColorStop(1, "rgba(251, 191, 36, 0)");
+        sCtx.fillStyle = mHalo;
+        sCtx.fillRect(0, 0, 28, 28);
+      }
+    }
   }
 
   render(game, nowMs) {
@@ -72,27 +103,26 @@ export class GameRenderer {
     ctx.fill();
     ctx.restore();
 
-    // Twinkling stars
+    // Twinkling stars (optimized: avoid 2,160 string allocations per second)
     for (let i = 0; i < 36; i++) {
       const sx = ((i * 73 - camX * 0.04) % VIEW_WIDTH + VIEW_WIDTH) % VIEW_WIDTH;
       const sy = (i * 29) % 135;
       const twinkle = 0.35 + 0.65 * Math.abs(Math.sin(nowMs * 0.0015 + i));
-      ctx.fillStyle =
-        i % 4 === 0
-          ? `rgba(103, 232, 249, ${twinkle.toFixed(2)})`
-          : i % 3 === 0
-          ? `rgba(253, 224, 71, ${twinkle.toFixed(2)})`
-          : `rgba(241, 245, 249, ${twinkle.toFixed(2)})`;
+      ctx.globalAlpha = twinkle;
+      ctx.fillStyle = i % 4 === 0 ? "#67e8f9" : i % 3 === 0 ? "#fde047" : "#f1f5f9";
       ctx.beginPath();
       ctx.arc(sx, sy, i % 5 === 0 ? 1.1 : 0.7, 0, Math.PI * 2);
       ctx.fill();
     }
+    ctx.globalAlpha = 1;
 
     // 4. Layer 1 Parallax: Distant Mountain Peaks (0.15x)
-    const farMtnGrad = ctx.createLinearGradient(0, 85, 0, VIEW_HEIGHT);
-    farMtnGrad.addColorStop(0, "rgba(11, 18, 50, 0.85)");
-    farMtnGrad.addColorStop(1, "rgba(6, 9, 25, 0.96)");
-    ctx.fillStyle = farMtnGrad;
+    if (!this.cachedFarMtnGrad) {
+      this.cachedFarMtnGrad = ctx.createLinearGradient(0, 85, 0, VIEW_HEIGHT);
+      this.cachedFarMtnGrad.addColorStop(0, "rgba(11, 18, 50, 0.85)");
+      this.cachedFarMtnGrad.addColorStop(1, "rgba(6, 9, 25, 0.96)");
+    }
+    ctx.fillStyle = this.cachedFarMtnGrad;
     ctx.beginPath();
     ctx.moveTo(0, VIEW_HEIGHT);
     const peaks1 = [0, 75, 42, 110, 28, 88, 18, 96, 36, 82, 22, 90];
@@ -106,11 +136,13 @@ export class GameRenderer {
     ctx.fill();
 
     // 5. Layer 2 Parallax: Mid-Range Pine Ridges (0.32x)
-    const midGrad = ctx.createLinearGradient(0, 130, 0, VIEW_HEIGHT);
-    midGrad.addColorStop(0, "#101938");
-    midGrad.addColorStop(0.65, "#090d22");
-    midGrad.addColorStop(1, "#050713");
-    ctx.fillStyle = midGrad;
+    if (!this.cachedMidGrad) {
+      this.cachedMidGrad = ctx.createLinearGradient(0, 130, 0, VIEW_HEIGHT);
+      this.cachedMidGrad.addColorStop(0, "#101938");
+      this.cachedMidGrad.addColorStop(0.65, "#090d22");
+      this.cachedMidGrad.addColorStop(1, "#050713");
+    }
+    ctx.fillStyle = this.cachedMidGrad;
     ctx.beginPath();
     ctx.moveTo(0, VIEW_HEIGHT);
     for (let i = -2; i < 24; i++) {
@@ -448,11 +480,9 @@ export class GameRenderer {
       if (ix < -20 || ix > VIEW_WIDTH + 20) continue;
 
       if (item.type === "crystal") {
-        const cHalo = ctx.createRadialGradient(ix, iy, 1, ix, iy, 11);
-        cHalo.addColorStop(0, "rgba(56, 189, 248, 0.55)");
-        cHalo.addColorStop(1, "rgba(56, 189, 248, 0)");
-        ctx.fillStyle = cHalo;
-        ctx.fillRect(ix - 11, iy - 11, 22, 22);
+        if (this.crystalHaloCanvas) {
+          ctx.drawImage(this.crystalHaloCanvas, ix - 11, iy - 11);
+        }
 
         ctx.save();
         ctx.translate(ix, iy);
@@ -463,11 +493,9 @@ export class GameRenderer {
         ctx.fillRect(-1.8, -1.8, 3.6, 3.6);
         ctx.restore();
       } else {
-        const mHalo = ctx.createRadialGradient(ix, iy, 1, ix, iy, 13);
-        mHalo.addColorStop(0, "rgba(251, 191, 36, 0.65)");
-        mHalo.addColorStop(1, "rgba(251, 191, 36, 0)");
-        ctx.fillStyle = mHalo;
-        ctx.fillRect(ix - 13, iy - 13, 26, 26);
+        if (this.shardHaloCanvas) {
+          ctx.drawImage(this.shardHaloCanvas, ix - 13, iy - 13);
+        }
 
         ctx.save();
         ctx.translate(ix, iy);
@@ -597,6 +625,31 @@ export class GameRenderer {
     };
     drawActorBox(game.partner, "#f472b6");
     drawActorBox(game.ayush, "#38bdf8");
+
+    // Safe in-game diagnostics badge (Milestone 5)
+    ctx.fillStyle = "rgba(4, 7, 20, 0.88)";
+    drawRoundedRect(ctx, 8, 8, 140, 56, 4);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(56, 189, 248, 0.6)";
+    ctx.lineWidth = 0.8;
+    ctx.stroke();
+
+    ctx.fillStyle = "#38bdf8";
+    ctx.font = "bold 5.5px monospace";
+    ctx.fillText("PIXEL HEARTS v5.0-prod", 12, 17);
+    ctx.fillStyle = "#e2e8f0";
+    ctx.font = "5px monospace";
+    const modeStr = `${game.gameMode || "solo"} • ${game.adventureMode || "story"}`;
+    const syncStr = game.cloudSave ? game.cloudSave.status : "local_only";
+    const coopStr = game.multiplayer && game.multiplayer.isPartnerConnected ? "linked" : (game.multiplayer && game.multiplayer.isCoopActive ? "waiting" : "offline");
+    ctx.fillText(`Mode: ${modeStr}`, 12, 26);
+    ctx.fillText(`Sync: ${syncStr}`, 12, 34);
+    ctx.fillText(`Co-Op: ${coopStr}`, 12, 42);
+    ctx.fillText(`Pos: (${Math.round(game.ayush.x)}, ${Math.round(game.ayush.y)})`, 12, 50);
+    const motesCount = game.dustMotes ? game.dustMotes.length : 0;
+    const heartsCount = game.floatingHearts ? game.floatingHearts.length : 0;
+    ctx.fillText(`Particles: ${motesCount}m / ${heartsCount}h`, 12, 58);
+
     ctx.restore();
   }
 }

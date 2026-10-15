@@ -145,8 +145,20 @@ export class PixelHeartsGame {
     this.updateViewportLayout();
     this.registerServiceWorker();
 
+    this.isTabHidden = false;
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) {
+          this.isTabHidden = true;
+        } else {
+          this.isTabHidden = false;
+          this.lastTime = performance.now();
+        }
+      });
+    }
+
     this.lastTime = performance.now();
-    requestAnimationFrame((t) => this.loop(t));
+    this.rafId = requestAnimationFrame((t) => this.loop(t));
   }
 
   startGameplay(options = {}) {
@@ -270,7 +282,6 @@ export class PixelHeartsGame {
     }
 
     this.lastTime = performance.now();
-    requestAnimationFrame((t) => this.loop(t));
   }
 
   getScrapbookCatalog() {
@@ -402,6 +413,10 @@ export class PixelHeartsGame {
   }
 
   spawnDustMotes(x, y, color = "#67e8f9", count = 6) {
+    // Bounded particle cap to prevent memory bloat on mobile
+    if (this.dustMotes.length >= 36) {
+      this.dustMotes.splice(0, count);
+    }
     for (let i = 0; i < count; i++) {
       this.dustMotes.push({
         x: x + (Math.random() - 0.5) * 10,
@@ -415,6 +430,10 @@ export class PixelHeartsGame {
   }
 
   spawnHeartBurst(x, y) {
+    // Bounded floating hearts cap
+    if (this.floatingHearts.length >= 24) {
+      this.floatingHearts.splice(0, 6);
+    }
     for (let i = 0; i < 6; i++) {
       this.floatingHearts.push({
         x: x + (Math.random() - 0.5) * 14,
@@ -462,12 +481,26 @@ export class PixelHeartsGame {
 
   registerServiceWorker() {
     if (
+      typeof navigator !== "undefined" &&
       "serviceWorker" in navigator &&
       (window.location.protocol === "https:" ||
         window.location.hostname === "localhost" ||
         window.location.hostname === "127.0.0.1")
     ) {
-      navigator.serviceWorker.register("./sw.js").catch(() => {});
+      navigator.serviceWorker
+        .register("./sw.js")
+        .then((reg) => {
+          reg.onupdatefound = () => {
+            const installing = reg.installing;
+            if (!installing) return;
+            installing.onstatechange = () => {
+              if (installing.state === "installed" && navigator.serviceWorker.controller) {
+                console.log("[SW] Updated service worker ready.");
+              }
+            };
+          };
+        })
+        .catch(() => {});
     }
   }
 
@@ -1038,13 +1071,19 @@ export class PixelHeartsGame {
   }
 
   loop(nowMs) {
+    if (this.isTabHidden) {
+      this.lastTime = nowMs;
+      this.rafId = requestAnimationFrame((t) => this.loop(t));
+      return;
+    }
+
     const dt = Math.min((nowMs - this.lastTime) / 1000, 0.05);
     this.lastTime = nowMs;
 
     this.update(dt);
     this.renderer.render(this, nowMs);
 
-    requestAnimationFrame((t) => this.loop(t));
+    this.rafId = requestAnimationFrame((t) => this.loop(t));
   }
 }
 

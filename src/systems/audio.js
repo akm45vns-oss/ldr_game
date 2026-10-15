@@ -24,6 +24,9 @@ export class SoundEngine {
         if (!this.isMuted) {
           this.startBgm();
         }
+        window.removeEventListener("pointerdown", unlock);
+        window.removeEventListener("keydown", unlock);
+        window.removeEventListener("touchstart", unlock);
       }
     };
     window.addEventListener("pointerdown", unlock, { passive: true });
