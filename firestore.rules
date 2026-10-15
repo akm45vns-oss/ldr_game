@@ -1,0 +1,62 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null && request.auth.uid != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function getCouple(coupleId) {
+      return get(/databases/$(database)/documents/couples/$(coupleId));
+    }
+
+    function isCoupleMember(coupleId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/couples/$(coupleId)) &&
+        request.auth.uid in getCouple(coupleId).data.members;
+    }
+
+    // User Profiles
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create, update: if isOwner(userId) &&
+        // Prevent users from tampering with coupleId directly; coupleId must be managed via Cloud Functions
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['coupleId']) || resource == null);
+      allow delete: if false;
+    }
+
+    // Couple Membership Records
+    match /couples/{coupleId} {
+      // Only linked members can read the couple record
+      allow read: if isAuthenticated() && request.auth.uid in resource.data.members;
+
+      // Creation, membership modifications, and invite generation MUST go through Cloud Functions
+      allow create, update, delete: if false;
+
+      // Shared Cloud Save Subcollection
+      match /shared_save/{saveDoc} {
+        allow read: if isCoupleMember(coupleId);
+        allow create, update: if isCoupleMember(coupleId) &&
+          request.resource.data.version == 2 &&
+          request.resource.data.collectedIds is list &&
+          request.resource.data.unlockedMemories is list &&
+          request.resource.data.questItems is list &&
+          request.resource.data.storyFlags is map &&
+          request.resource.data.revision is int &&
+          request.resource.data.resetGeneration is int;
+        allow delete: if false;
+      }
+    }
+
+    // Invitation Codes & Hashes
+    // Strictly private to Cloud Functions (Admin SDK); clients CANNOT read or write directly
+    match /invites/{inviteHash} {
+      allow read, write: if false;
+    }
+  }
+}

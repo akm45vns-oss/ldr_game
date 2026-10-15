@@ -18,6 +18,14 @@ export class HUDController {
     this.quickAudioBtn = document.getElementById("btn-quick-audio");
     this.menuAudioBtn = document.getElementById("btn-menu-audio");
     this.weatherBtn = document.getElementById("btn-weather");
+    this.cloudPill = document.getElementById("hud-cloud-pill");
+
+    if (this.cloudPill) {
+      this.cloudPill.addEventListener("click", () => {
+        if (this.game.sound) this.game.sound.playMenuClick();
+        if (this.game.modals) this.game.modals.openModal("couple-modal");
+      });
+    }
 
     this.lastZone = "";
   }
@@ -124,4 +132,26 @@ export class HUDController {
       this.menuAudioBtn.classList.toggle("muted", muted);
     }
   }
+
+  updateCloudSyncPill(status, message) {
+    if (!this.cloudPill) return;
+    this.cloudPill.className = `pixel-btn cloud-pill-btn ${status || "local"}`;
+    if (status === "synced") {
+      this.cloudPill.textContent = "☁️ Synced";
+      this.cloudPill.title = message || "Cloud Synced";
+    } else if (status === "syncing") {
+      this.cloudPill.textContent = "🔄 Syncing";
+      this.cloudPill.title = message || "Syncing with cloud...";
+    } else if (status === "offline_pending") {
+      this.cloudPill.textContent = "⚠️ Offline";
+      this.cloudPill.title = message || "Offline: changes pending";
+    } else if (status === "conflict_error") {
+      this.cloudPill.textContent = "❌ Sync Err";
+      this.cloudPill.title = message || "Sync error";
+    } else {
+      this.cloudPill.textContent = "🏠 Local";
+      this.cloudPill.title = message || "Local Offline Play";
+    }
+  }
 }
+

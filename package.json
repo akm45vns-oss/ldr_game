@@ -7,9 +7,13 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node tests/qa_modular_suite.js"
+    "test": "node tests/qa_modular_suite.js && node tests/qa_milestone4a_suite.js",
+    "test:cloud": "node tests/qa_milestone4a_suite.js"
   },
   "devDependencies": {
     "vite": "^6.2.0"
+  },
+  "dependencies": {
+    "firebase": "^13.0.0"
   }
 }

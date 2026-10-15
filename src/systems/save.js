@@ -25,6 +25,9 @@ export class SaveManager {
       missions: app.missionManager.serialize()
     };
     safeStorageSet(SAVE_STORAGE_KEY, JSON.stringify(payload));
+    if (app && app.cloudSave && !app.cloudSave.isApplyingRemoteChange) {
+      app.cloudSave.uploadLocalSave().catch(() => {});
+    }
     return true;
   }
 

@@ -11,7 +11,9 @@ export class ModalController {
       "inventory-modal",
       "scrapbook-modal",
       "settings-modal",
-      "reset-confirm-modal"
+      "reset-confirm-modal",
+      "auth-modal",
+      "couple-modal"
     ];
   }
 
@@ -40,6 +42,8 @@ export class ModalController {
     if (modalId === "quests-modal") this.renderQuestsModal();
     if (modalId === "inventory-modal") this.renderInventoryModal();
     if (modalId === "scrapbook-modal") this.renderScrapbookModal();
+    if (modalId === "auth-modal" && this.game.authModal) this.game.authModal.render();
+    if (modalId === "couple-modal" && this.game.coupleModal) this.game.coupleModal.render();
     const el = document.getElementById(modalId);
     if (el) el.classList.remove("hidden");
   }
@@ -224,6 +228,8 @@ export class ModalController {
     addModalBtn("btn-quests", "quests-modal");
     addModalBtn("btn-inventory", "inventory-modal");
     addModalBtn("btn-scrapbook", "scrapbook-modal");
+    addModalBtn("btn-couple-menu", "couple-modal");
+    addModalBtn("btn-account-menu", "auth-modal");
     addModalBtn("btn-settings", "settings-modal");
     addModalBtn("btn-reset", "reset-confirm-modal");
     addModalBtn("btn-open-newgame-confirm", "reset-confirm-modal");

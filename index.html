@@ -83,6 +83,7 @@
 
       <!-- RIGHT: Polished Utility Toolbar -->
       <nav class="hud-right-wrap" id="hud-right-wrap">
+        <button class="pixel-btn cloud-pill-btn local" id="hud-cloud-pill" title="Cloud Sync and Couple Status">🏠 Local</button>
         <button class="pixel-btn btn-audio-accent" id="btn-quick-audio" title="Toggle Sound Mute / Unmute">🔊 Sound</button>
         <button class="pixel-btn btn-fullscreen-accent" id="btn-fullscreen" title="Toggle Fullscreen & Landscape Lock">⛶ Fullscreen</button>
         <button class="pixel-btn" id="btn-hud-menu" aria-expanded="false" title="Toggle Quick Actions Menu">☰ Menu</button>
@@ -91,6 +92,8 @@
           <button class="pixel-btn btn-gold-accent" id="btn-quests" title="View Missions & Objectives (Key: Q)">📜 Quests</button>
           <button class="pixel-btn btn-pink-accent" id="btn-inventory" title="Open Couple Inventory (Key: I)">🎒 Bag</button>
           <button class="pixel-btn btn-fullscreen-accent" id="btn-scrapbook" title="Open Memories Scrapbook (Key: M)">📖 Memories</button>
+          <button class="pixel-btn btn-pink-accent" id="btn-couple-menu" title="Couple Pairing and Invitations">♥ Couple Link</button>
+          <button class="pixel-btn" id="btn-account-menu" title="Player Account and Cloud">👤 Account</button>
           <button class="pixel-btn btn-gold-accent" id="btn-weather" title="Cycle Weather">✨ Weather: Fireflies</button>
           <button class="pixel-btn btn-pink-accent" id="btn-companion" title="Toggle Partner Hold/Follow (Key: C)">🚶 Partner: Follow</button>
           <button class="pixel-btn" id="btn-settings" title="Audio, Touch Controls & Partner Name (Key: P)">⚙ Audio &amp; Settings</button>
@@ -280,6 +283,12 @@
         </div>
       </div>
     </div>
+
+    <!-- 6. Account Modal -->
+    <div id="auth-modal" class="modal-overlay hidden"></div>
+
+    <!-- 7. Couple Pairing & Cloud Sync Modal -->
+    <div id="couple-modal" class="modal-overlay hidden"></div>
 
     <!-- Portrait Orientation Helper -->
     <div id="orientation-overlay">

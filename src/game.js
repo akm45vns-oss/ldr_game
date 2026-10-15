@@ -20,6 +20,11 @@ import { HUDController } from './ui/hud.js';
 import { ModalController } from './ui/modals.js';
 import { ViewportManager } from './ui/viewport.js';
 import { GameRenderer } from './rendering/renderer.js';
+import { CoupleManager } from './systems/coupleManager.js';
+import { CloudSaveManager } from './systems/cloudSaveManager.js';
+import { AuthModal } from './ui/authModal.js';
+import { CoupleModal } from './ui/coupleModal.js';
+import { onAuthChange } from './firebase/auth.js';
 
 export class PixelHeartsGame {
   constructor() {
@@ -73,11 +78,24 @@ export class PixelHeartsGame {
     this.modals = new ModalController(this);
     this.viewport = new ViewportManager(this);
     this.renderer = new GameRenderer(this.canvas);
+    this.couple = new CoupleManager(this);
+    this.cloudSave = new CloudSaveManager(this, this.couple);
+    this.authModal = new AuthModal(this);
+    this.coupleModal = new CoupleModal(this);
 
     const loadResult = SaveManager.loadGame(this);
 
     this.modals.bindUI();
     this.viewport.bind();
+    this.cloudSave.init();
+
+    // Subscribe to Firebase Authentication state changes
+    onAuthChange(async (user) => {
+      await this.couple.init(user);
+      if (user && this.cloudSave) {
+        this.cloudSave.uploadLocalSave();
+      }
+    });
     this.updateCompanionUI();
     this.updateStatsUI();
     this.updateQuestHUD();
@@ -343,6 +361,9 @@ export class PixelHeartsGame {
     this.updateStatsUI();
     this.updateQuestHUD();
     SaveManager.saveGame(this);
+    if (this.cloudSave) {
+      this.cloudSave.handleResetProgress();
+    }
     this.dialogue.open(
       "NEW GAME STARTED — OAKVALE VILLAGE",
       [
