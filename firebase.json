@@ -1,4 +1,7 @@
 {
+  "database": {
+    "rules": "database.rules.json"
+  },
   "firestore": {
     "rules": "firestore.rules"
   },
@@ -20,6 +23,9 @@
     },
     "firestore": {
       "port": 8080
+    },
+    "database": {
+      "port": 9000
     },
     "functions": {
       "port": 5001

@@ -206,3 +206,119 @@ export function drawPartnerSpirit(ctx, actor, companionHoldMode, camX, camY, now
   ctx.font = "4.2px monospace";
   ctx.fillText(modeText, bx + badgeW - ctx.measureText(modeText).width - 3.5, by + 5.8);
 }
+
+// Draw Remote Human Partner with Rose-Gold Traveler Attire, Live Network Indicator, and Animations
+export function drawRemotePartnerHero(ctx, actor, camX, camY, nowMs) {
+  const cx = actor.x + actor.width / 2 - camX;
+  const bottomY = actor.y + actor.height - camY;
+  const breathe = actor.onGround && Math.abs(actor.vx) < 10 ? Math.sin(nowMs * 0.005 + 1.2) * 0.6 : 0;
+  const stride = !actor.onGround ? 1.8 : Math.abs(actor.vx) > 12 ? Math.sin(nowMs * 0.018 + 1.0) * 2.2 : 0;
+
+  // 1. Soft ground contact shadow
+  if (actor.onGround) {
+    ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
+    ctx.beginPath();
+    ctx.ellipse(cx, bottomY + 0.5, 7, 1.8, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.save();
+  ctx.translate(cx, bottomY + breathe);
+  ctx.scale(actor.squashX || 1.0, actor.squashY || 1.0);
+  if (actor.facingTilt) {
+    ctx.rotate(actor.facingTilt);
+  }
+
+  // 2. Flowing Celestial Rose Cloak behind Partner
+  const capeDir = -actor.facing;
+  const capeFlutter = Math.sin(nowMs * 0.008 + 2.0) * 1.4 + (Math.abs(actor.vx) * 0.025);
+  ctx.fillStyle = "#831843"; // Deep rose-wine
+  ctx.beginPath();
+  ctx.moveTo(0, -12);
+  ctx.lineTo(capeDir * (7 + capeFlutter), -3);
+  ctx.lineTo(capeDir * 3, -2);
+  ctx.closePath();
+  ctx.fill();
+
+  // 3. Boots / Legs with run stride
+  ctx.fillStyle = "#1e1b4b";
+  drawRoundedRect(ctx, -4 + stride * 0.5, -4.5, 3.2, 4.5, 1);
+  ctx.fill();
+  drawRoundedRect(ctx, 1 - stride * 0.5, -4.5, 3.2, 4.5, 1);
+  ctx.fill();
+
+  // 4. Rose-Quartz & Starlight Traveler Tunic with Gold Trim
+  const bodyGrad = ctx.createLinearGradient(0, -12, 0, -4);
+  bodyGrad.addColorStop(0, "#db2777"); // Bright pink/rose
+  bodyGrad.addColorStop(1, "#831843");
+  ctx.fillStyle = bodyGrad;
+  drawRoundedRect(ctx, -5.5, -12, 11, 8, 2.5);
+  ctx.fill();
+
+  // Gold belt trim & heart-shaped crest
+  ctx.fillStyle = "#fbbf24";
+  ctx.fillRect(-5, -5.2, 10, 1.1);
+  ctx.save();
+  ctx.translate(0, -8);
+  ctx.rotate(Math.PI / 4);
+  ctx.fillRect(-1.4, -1.4, 2.8, 2.8);
+  ctx.restore();
+
+  // Glowing rose scarf inlay
+  ctx.fillStyle = "#f472b6";
+  drawRoundedRect(ctx, -4.2, -12.2, 8.4, 1.4, 0.7);
+  ctx.fill();
+
+  // 5. Traveler Hood / Cowl & Glowing Warm Pink Eyes
+  ctx.fillStyle = "#fce7f3";
+  ctx.beginPath();
+  ctx.arc(0, -15.5, 5.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#f43f5e";
+  ctx.lineWidth = 0.8;
+  ctx.stroke();
+
+  // Dark visor shadow inside cowl
+  const visorX = actor.facing * 0.9;
+  ctx.fillStyle = "#020617";
+  drawRoundedRect(ctx, -3.8 + visorX, -16.8, 7.6, 3.2, 1.5);
+  ctx.fill();
+
+  // Expressive Glowing Warm Pink Eyes
+  ctx.fillStyle = "#fb7185";
+  ctx.fillRect(-2.2 + visorX * 1.3, -15.8, 1.6, 1.3);
+  ctx.fillRect(0.8 + visorX * 1.3, -15.8, 1.6, 1.3);
+
+  ctx.restore();
+
+  // 6. Sleek Co-Op Pill Nameplate ("♥ [PartnerName] [CO-OP]")
+  const partnerName = actor.name || "Partner";
+  const tag = `♥ ${partnerName} [CO-OP]`;
+  ctx.font = "bold 4.8px sans-serif";
+  const textW = ctx.measureText(tag).width;
+  const badgeW = Math.max(46, textW + 10);
+  const badgeH = 8.5;
+  const bx = cx - badgeW / 2;
+  const by = bottomY - 31 + breathe;
+
+  ctx.fillStyle = "rgba(2, 6, 23, 0.88)";
+  drawRoundedRect(ctx, bx, by, badgeW, badgeH, 4.2);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(244, 63, 94, 0.85)";
+  ctx.lineWidth = 0.8;
+  ctx.stroke();
+
+  // Glowing green pulse dot for live network connection
+  const pulse = Math.sin(nowMs * 0.008) * 0.4 + 0.6;
+  ctx.fillStyle = `rgba(34, 197, 94, ${pulse})`;
+  ctx.beginPath();
+  ctx.arc(bx + 4.5, by + 4.2, 1.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#fbcfe8";
+  ctx.fillText(`♥ ${partnerName}`, bx + 8.5, by + 5.8);
+  ctx.fillStyle = "#4ade80";
+  ctx.font = "bold 4.0px monospace";
+  ctx.fillText("LIVE", bx + badgeW - 12, by + 5.8);
+}
+

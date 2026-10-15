@@ -19,6 +19,7 @@ export class HUDController {
     this.menuAudioBtn = document.getElementById("btn-menu-audio");
     this.weatherBtn = document.getElementById("btn-weather");
     this.cloudPill = document.getElementById("hud-cloud-pill");
+    this.coopPill = document.getElementById("hud-coop-pill");
 
     if (this.cloudPill) {
       this.cloudPill.addEventListener("click", () => {
@@ -27,7 +28,21 @@ export class HUDController {
       });
     }
 
+    if (this.coopPill) {
+      this.coopPill.addEventListener("click", () => {
+        if (this.game.sound) this.game.sound.playMenuClick();
+        if (this.game.modals) this.game.modals.openModal("couple-modal");
+      });
+    }
+
     this.lastZone = "";
+  }
+
+  updateCoopPill(status = "solo", label = "♥ Solo", tooltip = "Play Together / Solo Mode") {
+    if (!this.coopPill) return;
+    this.coopPill.className = `pixel-btn coop-pill-btn ${status}`;
+    this.coopPill.textContent = label;
+    this.coopPill.title = tooltip;
   }
 
   showQuestToast(title, body) {

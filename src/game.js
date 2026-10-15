@@ -24,6 +24,7 @@ import { CoupleManager } from './systems/coupleManager.js';
 import { CloudSaveManager } from './systems/cloudSaveManager.js';
 import { AuthModal } from './ui/authModal.js';
 import { CoupleModal } from './ui/coupleModal.js';
+import { MultiplayerManager } from './systems/multiplayerManager.js';
 import { onAuthChange } from './firebase/auth.js';
 
 export class PixelHeartsGame {
@@ -82,6 +83,7 @@ export class PixelHeartsGame {
     this.cloudSave = new CloudSaveManager(this, this.couple);
     this.authModal = new AuthModal(this);
     this.coupleModal = new CoupleModal(this);
+    this.multiplayer = new MultiplayerManager(this);
 
     const loadResult = SaveManager.loadGame(this);
 
@@ -89,11 +91,30 @@ export class PixelHeartsGame {
     this.viewport.bind();
     this.cloudSave.init();
 
+    // Hook Multiplayer state updates to HUD status pill
+    this.multiplayer.onChange((mp) => {
+      if (!mp.isCoopActive) {
+        this.hud.updateCoopPill("solo", "♥ Solo", "Click to Play Together with your partner in real time");
+      } else if (!mp.isPartnerConnected) {
+        this.hud.updateCoopPill("connecting", "♥ Waiting...", "Waiting for partner to join room");
+      } else if (mp.isPartnerInSameZone) {
+        const partnerName = mp.presence.partnerStatus.displayName || "Partner";
+        this.hud.updateCoopPill("live", `♥ ${partnerName} Live`, `Connected with ${partnerName} in real time`);
+      } else {
+        const partnerName = mp.presence.partnerStatus.displayName || "Partner";
+        const zoneName = mp.getZoneDisplayName(mp.presence.partnerStatus.zoneId);
+        this.hud.updateCoopPill("other_zone", `♥ ${partnerName} (${zoneName})`, `${partnerName} is exploring ${zoneName}`);
+      }
+    });
+
     // Subscribe to Firebase Authentication state changes
     onAuthChange(async (user) => {
       await this.couple.init(user);
       if (user && this.cloudSave) {
         this.cloudSave.uploadLocalSave();
+      }
+      if (!user && this.multiplayer) {
+        this.multiplayer.leaveRoom();
       }
     });
     this.updateCompanionUI();
@@ -539,13 +560,19 @@ export class PixelHeartsGame {
           this.missionManager.setObjectiveProgress("m5_repair_bridge", "hold_west_plate", 1, true);
           this.missionManager.setObjectiveProgress("m5_repair_bridge", "lock_east_winch", 1);
           SaveManager.saveGame(this);
+          if (this.multiplayer) {
+            this.multiplayer.broadcastEvent("bridge_repaired", {});
+          }
         }
       );
       return;
     }
 
     if (obj.id === "starlight_shrine") {
-      const partnerDist = Math.hypot(this.partner.x + 6 - obj.x, this.partner.y + 8 - obj.y);
+      const activePartner = (this.multiplayer && this.multiplayer.isCoopActive && this.multiplayer.remoteActor && this.multiplayer.remoteActor.visible)
+        ? this.multiplayer.remoteActor
+        : this.partner;
+      const partnerDist = Math.hypot(activePartner.x + 6 - obj.x, activePartner.y + 8 - obj.y);
       if (!this.world.bridgeUnlockedPermanently) {
         this.dialogue.open(
           "STARLIGHT COUPLE SHRINE",
@@ -560,7 +587,7 @@ export class PixelHeartsGame {
         this.dialogue.open(
           "STARLIGHT COUPLE SHRINE",
           [
-            `Both hearts are needed to ignite the Starlight Beacon! Make sure ${this.partnerName} is in Follow mode ([C]) and hovering right beside you at the Shrine.`
+            `Both hearts are needed to ignite the Starlight Beacon! Make sure your partner is standing right beside you at the Shrine summit.`
           ]
         );
         return;
@@ -589,6 +616,9 @@ export class PixelHeartsGame {
           this.spawnHeartBurst(this.partner.x, this.partner.y - 8);
           this.missionManager.setObjectiveProgress("m6_light_shrine", "ignite_shrine_together", 1);
           SaveManager.saveGame(this);
+          if (this.multiplayer) {
+            this.multiplayer.broadcastEvent("shrine_ignited", {});
+          }
         }
       );
     }
@@ -666,85 +696,106 @@ export class PixelHeartsGame {
       );
     }
 
-    let partnerMove = 0;
-    let partnerJump = false;
-    if (!this.companionHoldMode) {
-      const dx = this.ayush.x - this.partner.x;
-      const nearChasmEdge =
-        !this.world.platePressed &&
-        !this.world.bridgeUnlockedPermanently &&
-        this.partner.x > 146 * TILE_SIZE &&
-        this.partner.x < 150 * TILE_SIZE &&
-        dx > 0;
+    // Real-Time Co-Op Multiplayer update
+    if (this.multiplayer) {
+      this.multiplayer.update(dt, performance.now());
+    }
 
-      // Auto-anchor Partner on West Pressure Plate (col 145) if Ayush steps toward the chasm before bridge is locked
-      if (
-        !this.world.bridgeUnlockedPermanently &&
-        this.ayush.x >= 146 * TILE_SIZE &&
-        this.ayush.x <= 170 * TILE_SIZE &&
-        Math.abs(this.partner.x - 145 * TILE_SIZE) < 42
-      ) {
-        this.partner.x = 145 * TILE_SIZE;
-        this.partner.y = 15 * TILE_SIZE - this.partner.height;
-        this.partner.vx = 0;
-        this.partner.vy = 0;
-        this.partner.onGround = true;
-        partnerMove = 0;
-      } else if (!nearChasmEdge && Math.abs(dx) > 22) {
-        partnerMove = dx > 0 ? 1 : -1;
-        const isBlocked = Math.abs(this.partner.vx) < 5;
-        if (isBlocked) {
-          this.partnerBlockedTimer = (this.partnerBlockedTimer || 0) + dt;
+    const humanPartnerOnline = this.multiplayer && this.multiplayer.isCoopActive && this.multiplayer.isPartnerConnected;
+
+    if (humanPartnerOnline) {
+      // Remote human player is active in the room; suppress local AI companion movement and rendering
+      this.partner.visible = false;
+    } else {
+      // Solo mode or partner offline/disconnected: AI companion operates normally
+      this.partner.visible = true;
+      let partnerMove = 0;
+      let partnerJump = false;
+      if (!this.companionHoldMode) {
+        const dx = this.ayush.x - this.partner.x;
+        const nearChasmEdge =
+          !this.world.platePressed &&
+          !this.world.bridgeUnlockedPermanently &&
+          this.partner.x > 146 * TILE_SIZE &&
+          this.partner.x < 150 * TILE_SIZE &&
+          dx > 0;
+
+        // Auto-anchor Partner on West Pressure Plate (col 145) if Ayush steps toward the chasm before bridge is locked
+        if (
+          !this.world.bridgeUnlockedPermanently &&
+          this.ayush.x >= 146 * TILE_SIZE &&
+          this.ayush.x <= 170 * TILE_SIZE &&
+          Math.abs(this.partner.x - 145 * TILE_SIZE) < 42
+        ) {
+          this.partner.x = 145 * TILE_SIZE;
+          this.partner.y = 15 * TILE_SIZE - this.partner.height;
+          this.partner.vx = 0;
+          this.partner.vy = 0;
+          this.partner.onGround = true;
+          partnerMove = 0;
+        } else if (!nearChasmEdge && Math.abs(dx) > 22) {
+          partnerMove = dx > 0 ? 1 : -1;
+          const isBlocked = Math.abs(this.partner.vx) < 5;
+          if (isBlocked) {
+            this.partnerBlockedTimer = (this.partnerBlockedTimer || 0) + dt;
+          } else {
+            this.partnerBlockedTimer = 0;
+          }
+          const needHeightJump = this.ayush.y < this.partner.y - 12;
+          const needObstacleJump = this.partnerBlockedTimer > 0.08;
+          if (this.partner.onGround && (needHeightJump || needObstacleJump)) {
+            partnerJump = true;
+            this.partnerBlockedTimer = 0;
+          }
         } else {
           this.partnerBlockedTimer = 0;
         }
-        const needHeightJump = this.ayush.y < this.partner.y - 12;
-        const needObstacleJump = this.partnerBlockedTimer > 0.08;
-        if (this.partner.onGround && (needHeightJump || needObstacleJump)) {
-          partnerJump = true;
-          this.partnerBlockedTimer = 0;
+
+        // If Partner is stranded on a one-way platform above Ayush, drop down to Ayush level
+        const partnerBottomRow = Math.floor((this.partner.y + this.partner.height + 1) / TILE_SIZE);
+        const partnerCol = Math.floor((this.partner.x + 6) / TILE_SIZE);
+        if (
+          this.partner.onGround &&
+          this.ayush.y > this.partner.y + 16 &&
+          Math.abs(dx) < 64 &&
+          this.world.isOneWayAt(partnerCol, partnerBottomRow) &&
+          partnerBottomRow < 15
+        ) {
+          this.partner.y += 6;
+          this.partner.onGround = false;
         }
-      } else {
-        this.partnerBlockedTimer = 0;
+
+        // Safe catch-up if partner is far behind on the same bank or after bridge is active
+        const canCatchUp =
+          this.world.bridgeUnlockedPermanently ||
+          this.world.platePressed ||
+          this.ayush.x < 150 * TILE_SIZE;
+        if (Math.abs(dx) > 260 && canCatchUp) {
+          this.partner.x = Math.max(16, this.ayush.x - this.ayush.facing * 20);
+          this.partner.y = this.ayush.y;
+          this.partner.vx = 0;
+          this.partner.vy = 0;
+          this.spawnHeartBurst(this.partner.x, this.partner.y);
+        }
       }
 
-      // If Partner is stranded on a one-way platform above Ayush, drop down to Ayush level
-      const partnerBottomRow = Math.floor((this.partner.y + this.partner.height + 1) / TILE_SIZE);
-      const partnerCol = Math.floor((this.partner.x + 6) / TILE_SIZE);
-      if (
-        this.partner.onGround &&
-        this.ayush.y > this.partner.y + 16 &&
-        Math.abs(dx) < 64 &&
-        this.world.isOneWayAt(partnerCol, partnerBottomRow) &&
-        partnerBottomRow < 15
-      ) {
-        this.partner.y += 6;
-        this.partner.onGround = false;
-      }
-
-      // Safe catch-up if partner is far behind on the same bank or after bridge is active
-      const canCatchUp =
-        this.world.bridgeUnlockedPermanently ||
-        this.world.platePressed ||
-        this.ayush.x < 150 * TILE_SIZE;
-      if (Math.abs(dx) > 260 && canCatchUp) {
-        this.partner.x = Math.max(16, this.ayush.x - this.ayush.facing * 20);
-        this.partner.y = this.ayush.y;
-        this.partner.vx = 0;
-        this.partner.vy = 0;
-        this.spawnHeartBurst(this.partner.x, this.partner.y);
-      }
+      // Pass jumpHeld = true while partner is ascending (this.partner.vy < 0) so her jump is never prematurely cut!
+      const partnerJumpHeld = partnerJump || this.partner.vy < 0;
+      this.partner.updatePhysics(dt, this.world, partnerMove, partnerJump, partnerJumpHeld);
     }
-
-    // Pass jumpHeld = true while partner is ascending (this.partner.vy < 0) so her jump is never prematurely cut!
-    const partnerJumpHeld = partnerJump || this.partner.vy < 0;
-    this.partner.updatePhysics(dt, this.world, partnerMove, partnerJump, partnerJumpHeld);
 
     const plateX = 145 * TILE_SIZE;
     const ayushOnPlate = Math.abs(this.ayush.x - plateX) < 18 && this.ayush.onGround;
-    const partnerOnPlate = Math.abs(this.partner.x - plateX) < 18 && this.partner.onGround;
+    const partnerOnPlate = this.partner.visible && Math.abs(this.partner.x - plateX) < 18 && this.partner.onGround;
+    const remotePartnerOnPlate =
+      this.multiplayer &&
+      this.multiplayer.remoteActor &&
+      this.multiplayer.remoteActor.visible &&
+      Math.abs(this.multiplayer.remoteActor.x - plateX) < 22 &&
+      this.multiplayer.remoteActor.onGround;
+    const remotePlateActive = this.multiplayer && this.multiplayer.remotePlateActive;
     const wasPlatePressed = this.world.platePressed;
-    this.world.platePressed = ayushOnPlate || partnerOnPlate || this.world.bridgeUnlockedPermanently;
+    this.world.platePressed = ayushOnPlate || partnerOnPlate || remotePartnerOnPlate || remotePlateActive || this.world.bridgeUnlockedPermanently;
 
     if (this.world.platePressed && !this.storyFlags.plateActivatedOnce) {
       this.storyFlags.plateActivatedOnce = true;
@@ -761,7 +812,7 @@ export class PixelHeartsGame {
     for (const item of this.world.collectibles) {
       if (item.collected) continue;
       const dAyush = Math.hypot(this.ayush.x + 6 - item.x, this.ayush.y + 8 - item.y);
-      const dPartner = Math.hypot(this.partner.x + 6 - item.x, this.partner.y + 8 - item.y);
+      const dPartner = this.partner.visible ? Math.hypot(this.partner.x + 6 - item.x, this.partner.y + 8 - item.y) : 999;
       if (dAyush < 16 || dPartner < 16) {
         item.collected = true;
         this.spawnHeartBurst(item.x, item.y);
@@ -770,6 +821,10 @@ export class PixelHeartsGame {
           this.sound.playCrystal();
         } else {
           this.sound.playMemory();
+        }
+
+        if (this.multiplayer && this.multiplayer.isCoopActive) {
+          this.multiplayer.broadcastEvent("collectible_pickup", { itemId: item.id, itemType: item.type });
         }
 
         if (item.type === "crystal") {

@@ -324,3 +324,31 @@ exports.leaveCouple = functions.https.onCall(async (data, context) => {
 
   return { success: true };
 });
+
+/**
+ * syncCoupleToRTDB Trigger Function
+ * Authoritatively mirrors Firestore couple membership into Realtime Database
+ * at `/rooms/{coupleId}/members` using Admin SDK privileges.
+ */
+exports.syncCoupleToRTDB = functions.firestore
+  .document("couples/{coupleId}")
+  .onWrite(async (change, context) => {
+    const coupleId = context.params.coupleId;
+    try {
+      const rtdb = admin.database();
+      if (!change.after.exists) {
+        await rtdb.ref(`rooms/${coupleId}`).remove();
+        return;
+      }
+      const data = change.after.data();
+      const members = data.members || [];
+      const membersObj = {};
+      members.forEach((uid) => {
+        membersObj[uid] = true;
+      });
+      await rtdb.ref(`rooms/${coupleId}/members`).set(membersObj);
+    } catch (err) {
+      console.warn(`[syncCoupleToRTDB] Error mirroring room ${coupleId}:`, err.message);
+    }
+  });
+

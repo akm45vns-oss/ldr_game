@@ -1,6 +1,6 @@
 import { VIEW_WIDTH, VIEW_HEIGHT, RENDER_SCALE, TILE_SIZE, LEVEL_COLS, LEVEL_ROWS } from '../core/constants.js';
 import { drawRoundedRect, drawSacredSpiritTree, drawAncientShrineArch } from './structures.js';
-import { drawAyushHero, drawPartnerSpirit } from './characters.js';
+import { drawAyushHero, drawPartnerSpirit, drawRemotePartnerHero } from './characters.js';
 
 // Game Renderer: Compositor, Parallax, Backdrop, Terrain, and Particle Effects
 export class GameRenderer {
@@ -142,8 +142,20 @@ export class GameRenderer {
     // 9. Interactive Props & Collectibles
     this.renderPropsAndCollectibles(ctx, game, camX, camY, nowMs);
 
-    // 10. Characters (Partner Spirit & Ayush Hero)
-    drawPartnerSpirit(ctx, game.partner, game.companionHoldMode, camX, camY, nowMs);
+    // 10. Characters (Remote Co-Op Partner, AI Companion Spirit & Local Hero)
+    const coopActive = game.multiplayer && game.multiplayer.isCoopActive;
+    const remoteActor = coopActive && game.multiplayer.remoteActor && game.multiplayer.remoteActor.visible
+      ? game.multiplayer.remoteActor
+      : null;
+
+    if (remoteActor) {
+      drawRemotePartnerHero(ctx, remoteActor, camX, camY, nowMs);
+    }
+
+    if (game.partner && game.partner.visible !== false) {
+      drawPartnerSpirit(ctx, game.partner, game.companionHoldMode, camX, camY, nowMs);
+    }
+
     drawAyushHero(ctx, game.ayush, camX, camY, nowMs);
 
     // 11. Landing Dust Motes & Floating Hearts
@@ -167,14 +179,40 @@ export class GameRenderer {
       ctx.restore();
     }
 
-    // Proximity Twin Heart Emote when close
-    const partnerDist = Math.hypot(game.ayush.x - game.partner.x, game.ayush.y - game.partner.y);
-    if (partnerDist < 28) {
-      const mx = (game.ayush.x + game.partner.x) / 2 + 6 - camX;
-      const my = Math.min(game.ayush.y, game.partner.y) - 6 - camY + Math.sin(nowMs * 0.005) * 2;
-      ctx.fillStyle = "#f472b6";
-      ctx.font = "bold 7px sans-serif";
-      ctx.fillText("♥", mx, my);
+    // Proximity Twin Heart Emote when close to partner (either remote human or companion)
+    const activePartner = remoteActor || (game.partner.visible !== false ? game.partner : null);
+    if (activePartner) {
+      const partnerDist = Math.hypot(game.ayush.x - activePartner.x, game.ayush.y - activePartner.y);
+      if (partnerDist < 32) {
+        const mx = (game.ayush.x + activePartner.x) / 2 + 6 - camX;
+        const my = Math.min(game.ayush.y, activePartner.y) - 6 - camY + Math.sin(nowMs * 0.005) * 2;
+        ctx.fillStyle = "#f472b6";
+        ctx.font = "bold 7px sans-serif";
+        ctx.fillText("♥", mx, my);
+      }
+    }
+
+    // Partner In Other Zone Indicator
+    if (coopActive && game.multiplayer.presence.partnerStatus.online && !game.multiplayer.isPartnerInSameZone) {
+      const otherZoneName = game.multiplayer.getZoneDisplayName(game.multiplayer.presence.partnerStatus.zoneId);
+      const partnerName = game.multiplayer.presence.partnerStatus.displayName || "Partner";
+      const bannerText = `♥ ${partnerName} is exploring ${otherZoneName}`;
+      ctx.save();
+      ctx.font = "bold 5.2px sans-serif";
+      const tw = ctx.measureText(bannerText).width;
+      const bw = tw + 16;
+      const bx = VIEW_WIDTH / 2 - bw / 2;
+      const by = 8;
+      ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+      drawRoundedRect(ctx, bx, by, bw, 11, 5.5);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(244, 114, 182, 0.75)";
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+
+      ctx.fillStyle = "#fbcfe8";
+      ctx.fillText(bannerText, bx + 8, by + 7.5);
+      ctx.restore();
     }
 
     // 12. Weather & Lighting

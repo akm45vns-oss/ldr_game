@@ -86,6 +86,36 @@ export class CoupleModal {
       const partner = coupleMgr.partnerProfile || {};
       const partnerName = partner.displayName || "Partner";
       const syncStatus = cloudMgr ? cloudMgr.statusMessage : "Online";
+      const mp = this.game.multiplayer;
+      const isCoop = mp && mp.isCoopActive;
+      const partnerPresence = mp ? mp.presence.partnerStatus : { online: false, inRoom: false, status: "offline" };
+
+      let coopBadgeClass = "locked";
+      let coopBadgeText = "SOLO";
+      let coopStatusText = "Currently playing solo with your local companion AI.";
+
+      if (isCoop) {
+        if (partnerPresence.online && partnerPresence.inRoom) {
+          if (mp.isPartnerInSameZone) {
+            coopBadgeClass = "completed";
+            coopBadgeText = "CO-OP LIVE ♥";
+            coopStatusText = `Both in the same zone! You and ${partnerName} are exploring together in real time.`;
+          } else {
+            coopBadgeClass = "active-quest";
+            coopBadgeText = "DIFFERENT ZONE";
+            const zoneName = mp.getZoneDisplayName(partnerPresence.zoneId);
+            coopStatusText = `${partnerName} is online and exploring ${zoneName}. Meet up in the same zone!`;
+          }
+        } else if (partnerPresence.status === "reconnecting") {
+          coopBadgeClass = "active-quest";
+          coopBadgeText = "RECONNECTING";
+          coopStatusText = `Reconnecting with ${partnerName}... Session remains active.`;
+        } else {
+          coopBadgeClass = "unlocked";
+          coopBadgeText = "WAITING";
+          coopStatusText = `Waiting for ${partnerName} to select Play Together. Solo companion is active.`;
+        }
+      }
 
       contentHtml = `
         <div class="modal-box glass-panel">
@@ -103,6 +133,23 @@ export class CoupleModal {
             </div>
             <div style="font-size:11px; color:var(--text-dim); margin-top:2px;">
               Connected Account: ${partner.email || "Active"}
+            </div>
+          </div>
+
+          <!-- Real-Time Co-Op Multiplayer Panel -->
+          <div class="item-card active-quest" style="margin-bottom:12px;">
+            <div class="item-card-header">
+              <span>🎮 Real-Time Co-Op Room</span>
+              <span class="status-badge ${coopBadgeClass}">${coopBadgeText}</span>
+            </div>
+            <div style="font-size:11px; color:#e2e8f0; margin-top:5px; line-height:1.4;">
+              ${coopStatusText}
+            </div>
+            <div style="display:flex; gap:8px; margin-top:8px;">
+              ${isCoop
+                ? `<button class="pixel-btn" id="btn-leave-coop" style="flex:1;">🚶 Return to Solo Play</button>`
+                : `<button class="pixel-btn btn-action-accent" id="btn-play-together" style="flex:1;">♥ Play Together</button>`
+              }
             </div>
           </div>
 
@@ -137,6 +184,28 @@ export class CoupleModal {
 
       document.getElementById("btn-close-couple")?.addEventListener("click", () => modal.classList.add("hidden"));
       document.getElementById("btn-close-couple-bottom")?.addEventListener("click", () => modal.classList.add("hidden"));
+
+      document.getElementById("btn-play-together")?.addEventListener("click", async () => {
+        this.isLoading = true;
+        this.render();
+        try {
+          if (this.game.multiplayer) {
+            await this.game.multiplayer.playTogether();
+          }
+        } catch (e) {
+          this.errorMsg = e.message || "Failed to enter couple room.";
+        } finally {
+          this.isLoading = false;
+          this.render();
+        }
+      });
+
+      document.getElementById("btn-leave-coop")?.addEventListener("click", () => {
+        if (this.game.multiplayer) {
+          this.game.multiplayer.playSolo();
+        }
+        this.render();
+      });
 
       document.getElementById("btn-sync-now")?.addEventListener("click", async () => {
         this.isLoading = true;
