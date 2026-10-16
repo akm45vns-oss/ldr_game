@@ -31,8 +31,8 @@ export class SaveManager {
       playerPos: { x: Math.round(playerActor.x), y: Math.round(playerActor.y) },
       partnerPos: { x: Math.round(partnerActor.x), y: Math.round(partnerActor.y) },
       collectedIds: app.world.collectibles.filter((c) => c.collected).map((c) => c.id),
-      questItems: Array.from(app.questItems),
-      unlockedMemories: Array.from(app.unlockedMemories),
+      questItems: Array.from(app.questItems || []),
+      unlockedMemories: Array.from(app.unlockedMemories || []),
       storyFlags: { ...app.storyFlags },
       worldState: {
         bridgeUnlockedPermanently: Boolean(app.world.bridgeUnlockedPermanently),

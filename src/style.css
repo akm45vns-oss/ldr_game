@@ -1392,6 +1392,56 @@
       text-decoration: underline;
     }
 
+    .btn-title-continue {
+      width: 100%;
+      padding: 12px 18px;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%) !important;
+      border: 1px solid rgba(56, 189, 248, 0.45) !important;
+      color: #f1f5f9 !important;
+      border-radius: 10px;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+      transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s, opacity 0.2s;
+    }
+
+    .btn-title-continue:hover:not(.disabled):not(:disabled) {
+      transform: translateY(-2px);
+      border-color: #38bdf8 !important;
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.4) !important;
+      color: #fff !important;
+    }
+
+    .btn-title-continue.disabled,
+    .btn-title-continue:disabled {
+      opacity: 0.42 !important;
+      cursor: not-allowed !important;
+      pointer-events: none !important;
+      border-color: rgba(255, 255, 255, 0.1) !important;
+      background: rgba(15, 23, 42, 0.4) !important;
+      box-shadow: none !important;
+      filter: grayscale(0.85);
+    }
+
+    .btn-title-continue .btn-subtext {
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      color: #94a3b8;
+      margin-top: 3px;
+    }
+
+    .title-build-badge {
+      margin-top: 10px;
+      font-family: monospace;
+      font-size: 10.5px;
+      color: #64748b;
+      letter-spacing: 0.05em;
+      user-select: none;
+    }
+
     /* Character Selection Cards Grid */
     .char-cards-grid {
       display: grid;

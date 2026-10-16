@@ -1,18 +1,19 @@
 {
   "name": "pixel-hearts",
   "private": true,
-  "version": "5.0.0",
+  "version": "5.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node tests/qa_modular_suite.js && node tests/qa_milestone4a_suite.js && node tests/qa_milestone4b_suite.js && node tests/qa_security_suite.js && node tests/qa_milestone4c_suite.js && node tests/qa_milestone5_suite.js",
+    "test": "node tests/qa_modular_suite.js && node tests/qa_milestone4a_suite.js && node tests/qa_milestone4b_suite.js && node tests/qa_security_suite.js && node tests/qa_milestone4c_suite.js && node tests/qa_milestone5_suite.js && node tests/qa_milestone5_1_suite.js",
     "test:cloud": "node tests/qa_milestone4a_suite.js",
     "test:coop": "node tests/qa_milestone4b_suite.js",
     "test:security": "node tests/qa_security_suite.js",
     "test:m4c": "node tests/qa_milestone4c_suite.js",
     "test:m5": "node tests/qa_milestone5_suite.js",
+    "test:m5.1": "node tests/qa_milestone5_1_suite.js",
     "test:emulator": "firebase emulators:exec --only database \"node tests/emulator_security_suite.js\""
   },
   "devDependencies": {

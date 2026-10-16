@@ -49,6 +49,15 @@ function generateSecureCode() {
   return res;
 }
 
+export const ONLINE_COUPLE_STATUS = {
+  LOADING: "loading",
+  UNAUTHENTICATED: "unauthenticated",
+  AUTHENTICATED_UNLINKED: "authenticated_unlinked",
+  AUTHENTICATED_LINKED: "authenticated_linked",
+  OFFLINE: "offline",
+  ERROR: "error"
+};
+
 export class CoupleManager {
   constructor(app) {
     this.app = app;
@@ -60,6 +69,14 @@ export class CoupleManager {
     this.activeInvite = null;
     this.unsubscribeSnapshot = null;
     this.listeners = new Set();
+
+    // Explicit typed status lifecycle for Milestone 5.1
+    this.currentUser = getCurrentUser() || null;
+    this.onlineStatus = this.currentUser ? ONLINE_COUPLE_STATUS.LOADING : ONLINE_COUPLE_STATUS.UNAUTHENTICATED;
+    this.statusMessage = this.currentUser
+      ? "Checking online couple status..."
+      : "🔒 Login or Link Couple Required to Play Online";
+    this.statusRequestId = 0;
   }
 
   getCoupleState() {
@@ -67,7 +84,9 @@ export class CoupleManager {
       isLinked: Boolean(this.isLinked),
       coupleId: this.coupleId,
       members: this.members,
-      partnerProfile: this.partnerProfile
+      partnerProfile: this.partnerProfile,
+      onlineStatus: this.onlineStatus,
+      statusMessage: this.statusMessage
     };
   }
 
@@ -87,25 +106,83 @@ export class CoupleManager {
   }
 
   async init(user) {
-    this.cleanup();
-    if (!user || !db) return;
+    const requestId = ++this.statusRequestId;
+    this.cleanup(false); // Clean previous couple without triggering redundant notify
+
+    this.currentUser = user || null;
+
+    // 1. Immediately resolve unauthenticated state when user is null (no network delay)
+    if (!user) {
+      this.onlineStatus = ONLINE_COUPLE_STATUS.UNAUTHENTICATED;
+      this.statusMessage = "🔒 Login or Link Couple Required to Play Online";
+      this.notifyChange();
+      return;
+    }
+
+    // 2. Immediate offline check
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      this.onlineStatus = ONLINE_COUPLE_STATUS.OFFLINE;
+      this.statusMessage = "📡 Network offline: Solo Adventure ready";
+      this.notifyChange();
+      return;
+    }
+
+    // 3. Database configuration check
+    if (!db) {
+      this.onlineStatus = ONLINE_COUPLE_STATUS.OFFLINE;
+      this.statusMessage = "🔒 Local offline mode (Database inactive)";
+      this.notifyChange();
+      return;
+    }
+
+    // 4. Set loading with a bounded timeout
+    this.onlineStatus = ONLINE_COUPLE_STATUS.LOADING;
+    this.statusMessage = "Checking online couple status...";
+    this.notifyChange();
 
     try {
-      const userRef = doc(db, "users", user.uid);
-      const userSnap = await getDoc(userRef);
-      if (userSnap.exists() && userSnap.data().coupleId) {
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("status_timeout")), 4000)
+      );
+
+      const fetchPromise = (async () => {
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userRef);
+        return userSnap;
+      })();
+
+      const userSnap = await Promise.race([fetchPromise, timeoutPromise]);
+
+      // Guard against race conditions where another auth change occurred while awaiting
+      if (this.statusRequestId !== requestId) return;
+
+      if (userSnap && userSnap.exists() && userSnap.data().coupleId) {
         const cid = userSnap.data().coupleId;
         this.coupleId = cid;
+        this.onlineStatus = ONLINE_COUPLE_STATUS.AUTHENTICATED_LINKED;
+        this.statusMessage = `✓ Linked with partner in couple ${cid}! Ready for Co-Op.`;
         this.listenToCouple(cid);
       } else {
-        this.notifyChange();
+        this.onlineStatus = ONLINE_COUPLE_STATUS.AUTHENTICATED_UNLINKED;
+        this.statusMessage = "⚠️ Account signed in. Link with your partner to start Co-Op!";
       }
     } catch (err) {
+      if (this.statusRequestId !== requestId) return;
       console.warn("[CoupleManager] Init error:", err.message);
+
+      if (err.message === "status_timeout" || (typeof navigator !== "undefined" && !navigator.onLine)) {
+        this.onlineStatus = ONLINE_COUPLE_STATUS.OFFLINE;
+        this.statusMessage = "📡 Network connection slow or offline. Solo Adventure ready.";
+      } else {
+        this.onlineStatus = ONLINE_COUPLE_STATUS.ERROR;
+        this.statusMessage = "⚠️ Online couple service unavailable. Please retry.";
+      }
     }
+
+    this.notifyChange();
   }
 
-  cleanup() {
+  cleanup(notify = true) {
     if (this.unsubscribeSnapshot) {
       this.unsubscribeSnapshot();
       this.unsubscribeSnapshot = null;
@@ -116,7 +193,13 @@ export class CoupleManager {
     this.partnerProfile = null;
     this.isLinked = false;
     this.activeInvite = null;
-    this.notifyChange();
+    this.onlineStatus = this.currentUser ? ONLINE_COUPLE_STATUS.AUTHENTICATED_UNLINKED : ONLINE_COUPLE_STATUS.UNAUTHENTICATED;
+    this.statusMessage = this.currentUser
+      ? "⚠️ Account signed in. Link with your partner to start Co-Op!"
+      : "🔒 Login or Link Couple Required to Play Online";
+    if (notify) {
+      this.notifyChange();
+    }
   }
 
   listenToCouple(coupleId) {
@@ -134,6 +217,8 @@ export class CoupleManager {
           this.members = [];
           this.partnerProfile = null;
           this.isLinked = false;
+          this.onlineStatus = ONLINE_COUPLE_STATUS.AUTHENTICATED_UNLINKED;
+          this.statusMessage = "⚠️ Couple pairing revoked or dissolved. Link partner to resume.";
           this.notifyChange();
           return;
         }
@@ -143,12 +228,21 @@ export class CoupleManager {
         this.members = data.members || [];
         this.memberProfiles = data.memberProfiles || {};
 
-        const currentUid = getCurrentUser() ? getCurrentUser().uid : null;
+        const currentUid = this.currentUser ? this.currentUser.uid : (getCurrentUser() ? getCurrentUser().uid : null);
         const partnerUid = this.members.find((m) => m !== currentUid);
         this.partnerProfile = partnerUid && this.memberProfiles[partnerUid] ? this.memberProfiles[partnerUid] : null;
 
         const previouslyLinked = this.isLinked;
         this.isLinked = this.members.length === 2 && Boolean(this.partnerProfile);
+
+        if (this.isLinked) {
+          this.onlineStatus = ONLINE_COUPLE_STATUS.AUTHENTICATED_LINKED;
+          const partnerName = this.partnerProfile.displayName || "Partner";
+          this.statusMessage = `✓ Linked with partner in couple ${coupleId}! Ready for Co-Op.`;
+        } else {
+          this.onlineStatus = ONLINE_COUPLE_STATUS.AUTHENTICATED_UNLINKED;
+          this.statusMessage = "⚠️ Waiting for partner to accept invite...";
+        }
 
         if (!previouslyLinked && this.isLinked) {
           if (this.app && this.app.showQuestToast) {
@@ -161,6 +255,9 @@ export class CoupleManager {
       },
       (err) => {
         console.warn("[CoupleManager] Snapshot listen error:", err.message);
+        this.onlineStatus = ONLINE_COUPLE_STATUS.ERROR;
+        this.statusMessage = "⚠️ Couple connection lost. Solo mode available.";
+        this.notifyChange();
       }
     );
   }

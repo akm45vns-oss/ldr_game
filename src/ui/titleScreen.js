@@ -2,6 +2,7 @@ import { CHARACTERS, migrateProfileNames } from '../core/profile.js';
 import { SaveManager } from '../systems/save.js';
 import { renderCharacterPreview } from '../rendering/characters.js';
 import { safeStorageGet, safeStorageSet } from '../core/storage.js';
+import { ONLINE_COUPLE_STATUS } from '../systems/coupleManager.js';
 
 /**
  * ============================================================================
@@ -77,6 +78,22 @@ export class TitleScreenController {
     this.applyCharacterSelectionUI();
     this.applyGameModeUI();
     this.applyAdventureTypeUI();
+    this.updateOnlineStatusDisplay();
+
+    // Hook CoupleManager state updates
+    if (this.game.couple && typeof this.game.couple.onChange === "function") {
+      this.game.couple.onChange(() => {
+        this.updateOnlineStatusDisplay();
+      });
+    }
+
+    // Render build identifier
+    const buildBadgeEl = document.getElementById("title-build-badge");
+    if (buildBadgeEl) {
+      const ver = typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "5.1.0";
+      const commit = typeof __BUILD_COMMIT__ !== "undefined" ? __BUILD_COMMIT__ : "prod";
+      buildBadgeEl.textContent = `v${ver} • Build ${commit}`;
+    }
   }
 
   show() {
@@ -296,7 +313,26 @@ export class TitleScreenController {
       linkFromModeBtn.addEventListener("click", (e) => {
         e.stopPropagation();
         if (this.game.sound) this.game.sound.playMenuClick();
-        if (this.game.modals) this.game.modals.openModal("couple-modal");
+        const user = this.game.couple ? this.game.couple.currentUser : null;
+        if (!user) {
+          if (this.game.modals) this.game.modals.openModal("auth-modal");
+        } else {
+          if (this.game.modals) this.game.modals.openModal("couple-modal");
+        }
+      });
+    }
+
+    const retryStatusBtn = document.getElementById("btn-mode-retry-status");
+    if (retryStatusBtn) {
+      retryStatusBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (this.game.sound) this.game.sound.playMenuClick();
+        if (this.game.couple) {
+          this.game.couple.onlineStatus = ONLINE_COUPLE_STATUS.LOADING;
+          this.game.couple.statusMessage = "Retrying online status check...";
+          this.updateOnlineStatusDisplay();
+          this.game.couple.init(this.game.couple.currentUser);
+        }
       });
     }
 
@@ -408,23 +444,53 @@ export class TitleScreenController {
   updateOnlineStatusDisplay() {
     const statusTextEl = document.getElementById("mode-coop-status-text");
     const linkActionBtn = document.getElementById("btn-mode-open-couple");
+    const retryBtn = document.getElementById("btn-mode-retry-status");
     if (!statusTextEl) return;
 
-    const user = this.game.couple ? this.game.couple.currentUser : null;
-    const coupleId = this.game.couple ? this.game.couple.coupleId : null;
+    const cm = this.game.couple;
+    const status = cm ? cm.onlineStatus : ONLINE_COUPLE_STATUS.UNAUTHENTICATED;
+    const statusMessage = cm ? cm.statusMessage : "🔒 Login or Link Couple Required to Play Online";
 
-    if (!user) {
-      statusTextEl.textContent = "🔒 Login or Link Couple Required to Play Online";
-      statusTextEl.style.color = "#fcd34d";
-      if (linkActionBtn) linkActionBtn.classList.remove("hidden");
-    } else if (!coupleId) {
-      statusTextEl.textContent = "⚠️ Account signed in. Link with your partner to start Co-Op!";
-      statusTextEl.style.color = "#38bdf8";
-      if (linkActionBtn) linkActionBtn.classList.remove("hidden");
-    } else {
-      statusTextEl.textContent = `✓ Linked with partner in couple ${coupleId}! Ready for Co-Op.`;
-      statusTextEl.style.color = "#34d399";
-      if (linkActionBtn) linkActionBtn.classList.add("hidden");
+    statusTextEl.textContent = statusMessage;
+
+    switch (status) {
+      case ONLINE_COUPLE_STATUS.AUTHENTICATED_LINKED:
+        statusTextEl.style.color = "#34d399";
+        if (linkActionBtn) linkActionBtn.classList.add("hidden");
+        if (retryBtn) retryBtn.classList.add("hidden");
+        break;
+
+      case ONLINE_COUPLE_STATUS.AUTHENTICATED_UNLINKED:
+        statusTextEl.style.color = "#38bdf8";
+        if (linkActionBtn) {
+          linkActionBtn.textContent = "♥ Link Couple";
+          linkActionBtn.classList.remove("hidden");
+        }
+        if (retryBtn) retryBtn.classList.add("hidden");
+        break;
+
+      case ONLINE_COUPLE_STATUS.OFFLINE:
+      case ONLINE_COUPLE_STATUS.ERROR:
+        statusTextEl.style.color = "#fb7185";
+        if (linkActionBtn) linkActionBtn.classList.add("hidden");
+        if (retryBtn) retryBtn.classList.remove("hidden");
+        break;
+
+      case ONLINE_COUPLE_STATUS.LOADING:
+        statusTextEl.style.color = "#a5b4fc";
+        if (linkActionBtn) linkActionBtn.classList.add("hidden");
+        if (retryBtn) retryBtn.classList.add("hidden");
+        break;
+
+      case ONLINE_COUPLE_STATUS.UNAUTHENTICATED:
+      default:
+        statusTextEl.style.color = "#fcd34d";
+        if (linkActionBtn) {
+          linkActionBtn.textContent = "🔑 Sign In / Link Couple";
+          linkActionBtn.classList.remove("hidden");
+        }
+        if (retryBtn) retryBtn.classList.add("hidden");
+        break;
     }
   }
 
@@ -433,6 +499,7 @@ export class TitleScreenController {
     if (this.continueBtn) {
       this.continueBtn.disabled = !hasSave;
       this.continueBtn.classList.toggle("disabled", !hasSave);
+      this.continueBtn.setAttribute("aria-disabled", String(!hasSave));
     }
 
     if (this.continueSummaryEl) {
@@ -441,8 +508,8 @@ export class TitleScreenController {
         this.continueSummaryEl.textContent = `${sum.playerName} & ${sum.partnerName} • ${sum.zone} • ${sum.crystals}/8 Crystals`;
         this.continueSummaryEl.style.display = "block";
       } else {
-        this.continueSummaryEl.textContent = "No saved game found";
-        this.continueSummaryEl.style.display = "none";
+        this.continueSummaryEl.textContent = "No saved journey found";
+        this.continueSummaryEl.style.display = "block";
       }
     }
   }

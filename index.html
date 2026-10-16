@@ -72,6 +72,8 @@
             <button class="pixel-btn btn-title-sub link-subtle" id="btn-title-credits">
               <span>📜 About &amp; Credits</span>
             </button>
+
+            <div class="title-build-badge" id="title-build-badge">v5.1.0 • Production Build</div>
           </div>
         </div>
 
@@ -155,8 +157,11 @@
                 Two linked hearts in the same world in real time. Coordinate movement, stand on dual plates together, and ignite the Starlight Shrine.
               </p>
               <div class="mode-status-box" id="mode-coop-status-box">
-                <span id="mode-coop-status-text">Checking online couple status...</span>
-                <button class="pixel-btn btn-pink-accent hidden" id="btn-mode-open-couple" style="margin-top:6px; font-size:11px;">♥ Link Couple</button>
+                <span id="mode-coop-status-text">🔒 Login or Link Couple Required to Play Online</span>
+                <div class="mode-status-actions" style="display:flex; gap:6px; justify-content:center; flex-wrap:wrap;">
+                  <button class="pixel-btn btn-pink-accent" id="btn-mode-open-couple" style="margin-top:6px; font-size:11px;">🔑 Sign In / Link Couple</button>
+                  <button class="pixel-btn btn-title-sub hidden" id="btn-mode-retry-status" style="margin-top:6px; font-size:11px;">🔄 Retry Status</button>
+                </div>
               </div>
               <div class="mode-selected-pill">CO-OP SELECTED</div>
             </div>
